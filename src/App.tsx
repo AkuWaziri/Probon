@@ -29,7 +29,8 @@ function App() {
   const [walletBusy, setWalletBusy] = useState(false);
   const [mandateCount, setMandateCount] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0n);
-  const [paymentsCount, setPaymentsCount] = useState(0);\n  const [recentPayments, setRecentPayments] = useState<ProbonPayment[]>([]);
+  const [paymentsCount, setPaymentsCount] = useState(0);
+  const [recentPayments, setRecentPayments] = useState<ProbonPayment[]>([]);
   const [mobileNav, setMobileNav] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -74,7 +75,8 @@ function App() {
           setNativeBalance(balance);
           setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
           setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
-          setPaymentsCount(payments.length);\n          setRecentPayments(payments.slice(-4).reverse());
+          setPaymentsCount(payments.length);
+          setRecentPayments(payments.slice(-4).reverse());
         }
       } catch {
         if (!cancelled) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); setRecentPayments([]); }
