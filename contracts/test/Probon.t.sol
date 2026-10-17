@@ -22,8 +22,8 @@ contract ProbonTest {
         vm.deal(owner, 100 ether);
         vm.deal(agent, 10 ether);
         vm.deal(address(this), 100 ether);
-        vm.prank(owner);
         probon = new Probon();
+        probon.transferOwnership(owner);
     }
 
     function _create() private returns (uint256 id) {
