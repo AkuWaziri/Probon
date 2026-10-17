@@ -224,6 +224,10 @@ export async function setEmergencyPause(account: Address, paused: boolean) {
   });
 }
 
+export async function getContractOwner(): Promise<Address> {
+  return publicClient.readContract({ address: requireContract(), abi: probonAbi, functionName: "owner" });
+}
+
 export async function getContractPauseState(): Promise<boolean> {
   return publicClient.readContract({ address: requireContract(), abi: probonAbi, functionName: "paused" });
 }
