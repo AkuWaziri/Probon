@@ -382,3 +382,7 @@ button:disabled { opacity: .58; cursor: not-allowed; }
  .payment-row > a { font-size: 0; }
  .payment-row > a svg { width: 16px; height: 16px; }
 }
+
+.global-pause-card { margin-bottom: 20px; }
+.global-pause-card > button { margin-top: 15px; }
+.global-pause-note { margin: 14px 0 0 49px; color: #777084; font-size: 10px; line-height: 1.7; }
