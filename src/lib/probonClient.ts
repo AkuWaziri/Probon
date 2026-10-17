@@ -13,6 +13,8 @@ declare global {
   interface Window {
     ethereum?: {
       request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on?: (eventName: string, listener: (...args: unknown[]) => void) => void;
+      removeListener?: (eventName: string, listener: (...args: unknown[]) => void) => void;
     };
   }
 }
