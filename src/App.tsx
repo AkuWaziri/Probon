@@ -192,9 +192,7 @@ function App() {
                     <div className="chart-plot">
                       <div className="chart-gridline line-1" /><div className="chart-gridline line-2" /><div className="chart-gridline line-3" /><div className="chart-gridline line-4" /><div className="chart-gridline line-5" />
                       <svg className="chart-svg" viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label="No payment activity yet">
-                        <defs><linearGradient id="areaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#8172f7" stopOpacity=".18" /><stop offset="100%" stopColor="#8172f7" stopOpacity="0" /></linearGradient></defs>
-                        <path d="M0 144 C35 144 40 140 70 142 S115 132 145 139 S185 134 215 140 S255 125 285 135 S325 132 355 138 S395 120 425 132 S470 129 500 136 S555 126 600 130 L600 160 L0 160 Z" fill="url(#areaFill)" />
-                        <path d="M0 144 C35 144 40 140 70 142 S115 132 145 139 S185 134 215 140 S255 125 285 135 S325 132 355 138 S395 120 425 132 S470 129 500 136 S555 126 600 130" fill="none" stroke="#8172f7" strokeWidth="2.5" strokeLinecap="round" strokeDasharray="5 6" opacity=".65" />
+
                       </svg>
                       <div className="empty-chart-label"><span><Activity size={16} /></span><strong>No activity yet</strong><small>Your payment history will appear here.</small></div>
                     </div>
