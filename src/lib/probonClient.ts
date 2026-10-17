@@ -66,14 +66,19 @@ async function switchToArcMainnet() {
         blockExplorerUrls: [ARC_EXPLORER_URL],
       }],
     });
+    await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x13b2" }] });
+  }
+  const verifiedChain = String(await window.ethereum.request({ method: "eth_chainId" }));
+  if (Number.parseInt(verifiedChain, 16) !== ARC_CHAIN_ID) {
+    throw new Error("Switch your wallet to Arc Mainnet (chain ID 5042) before continuing.");
   }
 }
 
 export async function connectWallet(): Promise<Address> {
   if (!window.ethereum) throw new Error("No injected wallet found. Install or unlock MetaMask, Rabby, or another EVM wallet.");
-  await switchToArcMainnet();
   const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
   if (!accounts?.[0] || !isAddress(accounts[0])) throw new Error("The wallet did not return a valid address.");
+  await switchToArcMainnet();
   return getAddress(accounts[0]);
 }
 
