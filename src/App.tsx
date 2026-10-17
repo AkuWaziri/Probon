@@ -173,9 +173,9 @@ function App() {
                   <div className="stat-foot"><span className="status-dot neutral" /> {walletAddress ? "Active on-chain mandates" : "Connect wallet to load mandates"}</div>
                 </article>
                 <article className="stat-card">
-                  <div className="stat-top"><span>Total paid</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
+                  <div className="stat-top"><span>Recent spend</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
                   <div className="stat-value">{formatNativeUsdc(totalPaid)} <span className="stat-unit">USDC</span></div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> {paymentsCount} confirmed payment(s)</div>
+                  <div className="stat-foot"><span className="status-dot neutral" /> Across {paymentsCount} recent event(s), up to 50</div>
                 </article>
                 <article className="stat-card">
                   <div className="stat-top"><span>Policy enforcement</span><span className="stat-icon orange"><ShieldAlert size={17} /></span></div>
