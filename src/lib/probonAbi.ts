@@ -1,0 +1,17 @@
+export const probonAbi = [
+  { type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] },
+  { type: "function", name: "paused", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "bool" }] },
+  { type: "function", name: "nextMandateId", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
+  { type: "function", name: "createMandate", stateMutability: "payable", inputs: [{ name: "agent", type: "address" }, { name: "recipients", type: "address[]" }, { name: "maxPerTx", type: "uint128" }, { name: "dailyLimit", type: "uint128" }, { name: "expiresAt", type: "uint64" }], outputs: [{ name: "mandateId", type: "uint256" }] },
+  { type: "function", name: "fundMandate", stateMutability: "payable", inputs: [{ name: "mandateId", type: "uint256" }], outputs: [] },
+  { type: "function", name: "executePayment", stateMutability: "nonpayable", inputs: [{ name: "mandateId", type: "uint256" }, { name: "recipient", type: "address" }, { name: "amount", type: "uint128" }], outputs: [] },
+  { type: "function", name: "revokeMandate", stateMutability: "nonpayable", inputs: [{ name: "mandateId", type: "uint256" }], outputs: [] },
+  { type: "function", name: "setPaused", stateMutability: "nonpayable", inputs: [{ name: "value", type: "bool" }], outputs: [] },
+  { type: "function", name: "getMandatePolicy", stateMutability: "view", inputs: [{ name: "mandateId", type: "uint256" }], outputs: [{ name: "mandateOwner", type: "address" }, { name: "agent", type: "address" }, { name: "maxPerTx", type: "uint128" }, { name: "dailyLimit", type: "uint128" }, { name: "expiresAt", type: "uint64" }, { name: "balance", type: "uint128" }, { name: "totalSpent", type: "uint128" }, { name: "active", type: "bool" }] },
+  { type: "function", name: "recipientAllowed", stateMutability: "view", inputs: [{ name: "mandateId", type: "uint256" }, { name: "recipient", type: "address" }], outputs: [{ name: "", type: "bool" }] },
+  { type: "function", name: "dailySpent", stateMutability: "view", inputs: [{ name: "mandateId", type: "uint256" }, { name: "day", type: "uint256" }], outputs: [{ name: "", type: "uint256" }] },
+  { type: "event", name: "MandateCreated", anonymous: false, inputs: [{ indexed: true, name: "mandateId", type: "uint256" }, { indexed: true, name: "owner", type: "address" }, { indexed: true, name: "agent", type: "address" }, { indexed: false, name: "maxPerTx", type: "uint256" }, { indexed: false, name: "dailyLimit", type: "uint256" }, { indexed: false, name: "expiresAt", type: "uint64" }, { indexed: false, name: "initialFunding", type: "uint256" }] },
+  { type: "event", name: "MandateFunded", anonymous: false, inputs: [{ indexed: true, name: "mandateId", type: "uint256" }, { indexed: true, name: "funder", type: "address" }, { indexed: false, name: "amount", type: "uint256" }] },
+  { type: "event", name: "PaymentExecuted", anonymous: false, inputs: [{ indexed: true, name: "mandateId", type: "uint256" }, { indexed: true, name: "agent", type: "address" }, { indexed: true, name: "recipient", type: "address" }, { indexed: false, name: "amount", type: "uint256" }, { indexed: false, name: "day", type: "uint256" }] },
+  { type: "event", name: "MandateRevoked", anonymous: false, inputs: [{ indexed: true, name: "mandateId", type: "uint256" }, { indexed: false, name: "refunded", type: "uint256" }] },
+] as const;
