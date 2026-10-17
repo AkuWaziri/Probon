@@ -1,9 +1,13 @@
 import {
   createPublicClient, createWalletClient, custom, decodeEventLog, formatUnits,
-  getAddress, http, isAddress, parseUnits, type Address,
+  getAddress, http, isAddress, parseAbiItem, parseUnits, type Address,
 } from "viem";
 import { arcMainnet, ARC_CHAIN_ID, ARC_RPC_URL, ARC_EXPLORER_URL, NATIVE_USDC_DECIMALS, PROBON_CONTRACT_ADDRESS } from "./arc";
 import { probonAbi } from "./probonAbi";
+
+const mandateCreatedEvent = parseAbiItem("event MandateCreated(uint256 indexed mandateId, address indexed owner, address indexed agent, uint256 maxPerTx, uint256 dailyLimit, uint64 expiresAt, uint256 initialFunding)");
+const recipientConfiguredEvent = parseAbiItem("event RecipientConfigured(uint256 indexed mandateId, address indexed recipient)");
+const paymentExecutedEvent = parseAbiItem("event PaymentExecuted(uint256 indexed mandateId, address indexed agent, address indexed recipient, uint256 amount, uint256 day)");
 
 declare global {
   interface Window {
@@ -99,7 +103,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const contractAddress = requireContract();
   const created = await publicClient.getLogs({
     address: contractAddress,
-    event: probonAbi.find((item) => item.type === "event" && item.name === "MandateCreated") as never,
+    event: mandateCreatedEvent,
     fromBlock: 0n,
     toBlock: "latest",
   });
@@ -118,7 +122,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
     }) as readonly [Address, Address, bigint, bigint, bigint, bigint, bigint, boolean];
     const recipientLogs = await publicClient.getLogs({
       address: contractAddress,
-      event: probonAbi.find((item) => item.type === "event" && item.name === "RecipientConfigured") as never,
+      event: recipientConfiguredEvent,
       fromBlock: 0n,
       toBlock: "latest",
     });
@@ -136,7 +140,7 @@ export async function loadPayments(): Promise<ProbonPayment[]> {
   const contractAddress = requireContract();
   const logs = await publicClient.getLogs({
     address: contractAddress,
-    event: probonAbi.find((item) => item.type === "event" && item.name === "PaymentExecuted") as never,
+    event: paymentExecutedEvent,
     fromBlock: 0n,
     toBlock: "latest",
   });
