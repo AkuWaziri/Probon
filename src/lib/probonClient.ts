@@ -113,6 +113,21 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
       ? [decoded.args.mandateId] : [];
   }))];
 
+  const recipientLogs = await publicClient.getLogs({
+    address: contractAddress,
+    event: recipientConfiguredEvent,
+    fromBlock: PROBON_DEPLOYMENT_BLOCK,
+    toBlock: "latest",
+  });
+  const recipientsByMandate = new Map<bigint, Address[]>();
+  for (const log of recipientLogs) {
+    const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
+    if (decoded.eventName !== "RecipientConfigured") continue;
+    const list = recipientsByMandate.get(decoded.args.mandateId) ?? [];
+    list.push(decoded.args.recipient);
+    recipientsByMandate.set(decoded.args.mandateId, list);
+  }
+
   const mandates = await Promise.all(ids.map(async (id) => {
     const raw = await publicClient.readContract({
       address: contractAddress,
@@ -120,18 +135,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
       functionName: "getMandatePolicy",
       args: [id],
     }) as readonly [Address, Address, bigint, bigint, bigint, bigint, bigint, boolean];
-    const recipientLogs = await publicClient.getLogs({
-      address: contractAddress,
-      event: recipientConfiguredEvent,
-      fromBlock: PROBON_DEPLOYMENT_BLOCK,
-      toBlock: "latest",
-    });
-    const recipients = recipientLogs.flatMap((log) => {
-      const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
-      return decoded.eventName === "RecipientConfigured" && decoded.args.mandateId === id
-        ? [decoded.args.recipient] : [];
-    });
-    return { id, owner: raw[0], agent: raw[1], maxPerTx: raw[2], dailyLimit: raw[3], expiresAt: raw[4], balance: raw[5], totalSpent: raw[6], active: raw[7], recipients };
+    return { id, owner: raw[0], agent: raw[1], maxPerTx: raw[2], dailyLimit: raw[3], expiresAt: raw[4], balance: raw[5], totalSpent: raw[6], active: raw[7], recipients: recipientsByMandate.get(id) ?? [] };
   }));
   return mandates.sort((a, b) => Number(b.id - a.id));
 }
