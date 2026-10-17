@@ -48,6 +48,8 @@ After reviewing and deploying `contracts/src/Probon.sol` to Arc Mainnet:
 
 A mainnet transaction can move real funds. Never paste a seed phrase or private key into the app, repository, chat, or Vercel environment variables. Deployment secrets should be supplied only to a secure local deployment process or an approved secret manager. Review the contract and obtain an independent security review before production use.
 
+See [TEST_PLAN.md](./TEST_PLAN.md) for the mainnet test checklist and Arc Studio evidence checklist.
+
 ## Contract development
 
 Requirements: Foundry.
