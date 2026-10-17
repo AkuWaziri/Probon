@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
+import type { ProbonPayment } from "./lib/probonClient";
 import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
 import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, SettingsWorkspace, TransactionsWorkspace } from "./components/Workspaces";
@@ -21,8 +22,6 @@ const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
   { label: "Settings", icon: Settings2 },
 ];
 
-const transactions: { name: string; detail: string; amount: string; time: string; state: string; kind: string }[] = [];
-
 function App() {
   const [active, setActive] = useState<NavItem>("Overview");
   const [walletAddress, setWalletAddress] = useState<Address | null>(null);
@@ -30,7 +29,7 @@ function App() {
   const [walletBusy, setWalletBusy] = useState(false);
   const [mandateCount, setMandateCount] = useState(0);
   const [totalPaid, setTotalPaid] = useState(0n);
-  const [paymentsCount, setPaymentsCount] = useState(0);
+  const [paymentsCount, setPaymentsCount] = useState(0);\n  const [recentPayments, setRecentPayments] = useState<ProbonPayment[]>([]);
   const [mobileNav, setMobileNav] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -62,7 +61,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (!walletAddress) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); return; }
+    if (!walletAddress) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); setRecentPayments([]); return; }
     let cancelled = false;
     const refresh = async () => {
       try {
@@ -75,10 +74,10 @@ function App() {
           setNativeBalance(balance);
           setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
           setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
-          setPaymentsCount(payments.length);
+          setPaymentsCount(payments.length);\n          setRecentPayments(payments.slice(-4).reverse());
         }
       } catch {
-        if (!cancelled) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); }
+        if (!cancelled) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); setRecentPayments([]); }
       }
     };
     void refresh();
@@ -115,7 +114,7 @@ function App() {
         <div className="sidebar-bottom">
           <div className="help-card">
             <div className="help-icon"><CircleHelp size={17} /></div>
-            <div><strong>Need a hand?</strong><p>Explore the docs and get started.</p><button onClick={() => setNotice("Documentation link will be connected soon.")}>Open documentation <ArrowUpRight size={13} /></button></div>
+            <div><strong>Need a hand?</strong><p>Explore the docs and get started.</p><button onClick={() => window.open("https://docs.arc.io", "_blank", "noopener,noreferrer")}>Arc documentation <ArrowUpRight size={13} /></button></div>
           </div>
           <button className="profile-row" onClick={() => handleNav("Settings")}>
             <div className="profile-avatar">AW</div>
@@ -132,7 +131,7 @@ function App() {
             <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{active}</strong></div>
           </div>
           <div className="topbar-actions">
-            <div className="network-pill"><span className="network-dot" /> Arc Testnet <ChevronDown size={13} /></div>
+            <div className="network-pill"><span className="network-dot" /> Arc Mainnet <ChevronDown size={13} /></div>
             <button className="icon-button notification-button" aria-label="Network status" onClick={() => handleNav("Settings")}><Bell size={18} /></button>
             <button className={`connect-button ${walletAddress ? "connected-button" : ""}`} onClick={() => void handleWallet()} disabled={walletBusy}>
               <Wallet size={16} /> {walletBusy ? "Connecting…" : walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Connect wallet"}
@@ -186,7 +185,7 @@ function App() {
               <section className="content-grid">
                 <article className="panel activity-panel">
                   <div className="panel-heading"><div><h2>Payment activity</h2><p>Track what your agents are spending.</p></div><button className="subtle-button" onClick={() => handleNav("Transactions")}>View activity <ArrowUpRight size={14} /></button></div>
-                  <div className="chart-summary"><div><strong>$0.00</strong><span>USDC spent</span></div><div className="chart-period"><span className="period-dot" /> Last 7 days <ChevronDown size={13} /></div></div>
+                  <div className="chart-summary"><div><strong>{formatNativeUsdc(totalPaid)}</strong><span>USDC spent</span></div><div className="chart-period"><span className="period-dot" /> Last 7 days <ChevronDown size={13} /></div></div>
                   <div className="chart-area">
                     <div className="chart-y-labels"><span>$40</span><span>$30</span><span>$20</span><span>$10</span><span>$0</span></div>
                     <div className="chart-plot">
@@ -194,7 +193,7 @@ function App() {
                       <svg className="chart-svg" viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label="No payment activity yet">
 
                       </svg>
-                      <div className="empty-chart-label"><span><Activity size={16} /></span><strong>No activity yet</strong><small>Your payment history will appear here.</small></div>
+                      <div className="empty-chart-label"><span><Activity size={16} /></span><strong>{paymentsCount > 0 ? "Activity detected" : "No activity yet"}</strong><small>{paymentsCount > 0 ? `${paymentsCount} confirmed payment(s) · open Transactions` : "Confirmed payments will appear here."}</small></div>
                     </div>
                     <div className="chart-x-labels"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
                   </div>
@@ -216,7 +215,7 @@ function App() {
                 <div className="panel-heading"><div><h2>Recent transactions</h2><p>Latest payment activity across your agents.</p></div><button className="subtle-button" onClick={() => handleNav("Transactions")}>View all <ArrowUpRight size={14} /></button></div>
                 <div className="table-wrap">
                   <table><thead><tr><th>PAYMENT</th><th>AGENT / WALLET</th><th>AMOUNT</th><th>TIME</th><th>STATUS</th><th /></tr></thead>
-                    <tbody>{transactions.length === 0 ? <tr><td colSpan={6} className="tx-detail">No sample transactions are shown. Open Transactions to load confirmed contract events.</td></tr> : transactions.slice(0, 3).map((tx) => <tr key={tx.name}><td><div className="transaction-name"><span className={`tx-icon tx-${tx.kind}`}>{tx.kind === "blocked" ? <ShieldAlert size={15} /> : tx.kind === "in" ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}</span><strong>{tx.name}</strong></div></td><td className="tx-detail">{tx.detail}</td><td className={`tx-amount ${tx.kind === "in" ? "amount-in" : tx.kind === "blocked" ? "amount-blocked" : ""}`}>{tx.amount}</td><td className="tx-time">{tx.time}</td><td><span className={`tx-status status-${tx.kind}`}><span />{tx.state}</span></td><td><button className="row-action" aria-label={`Open ${tx.name} details`} onClick={() => setNotice("Transaction details will be available after on-chain integration.")}><ExternalLink size={14} /></button></td></tr>)}</tbody>
+                    <tbody>{recentPayments.length === 0 ? <tr><td colSpan={6} className="tx-detail">No confirmed payment events found for the configured contract.</td></tr> : recentPayments.map((payment) => <tr key={payment.transactionHash}><td><div className="transaction-name"><span className="tx-icon tx-out"><ArrowUpRight size={15}/></span><strong>Mandate #{payment.mandateId.toString()}</strong></div></td><td className="tx-detail">{payment.agent.slice(0, 7)}… → {payment.recipient.slice(0, 7)}…</td><td className="tx-amount">-{formatNativeUsdc(payment.amount)} USDC</td><td className="tx-time">Block {payment.blockNumber.toString()}</td><td><span className="tx-status status-out"><span/>Confirmed</span></td><td><a className="row-action" aria-label="Open transaction in Arc Explorer" href={"https://explorer.arc.io/tx/" + payment.transactionHash} target="_blank" rel="noreferrer"><ExternalLink size={14}/></a></td></tr>)}</tbody>
                   </table>
                 </div>
                 <div className="table-foot"><span><span className="status-dot neutral" /> {PROBON_CONTRACT_ADDRESS ? "Live contract integration" : "No contract address configured yet"}</span><button onClick={() => handleNav("Transactions")}>Explore transactions <ArrowUpRight size={14} /></button></div>
