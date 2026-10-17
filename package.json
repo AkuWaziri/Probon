@@ -13,7 +13,8 @@
     "lucide-react": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "vite": "latest"
+    "vite": "latest",
+    "viem": "^2.37.3"
   },
   "devDependencies": {
     "@types/react": "latest",
