@@ -40,10 +40,11 @@ The dashboard must not be treated as proof of a successful on-chain action. Only
 After reviewing and deploying `contracts/src/Probon.sol` to Arc Mainnet:
 
 1. Set `VITE_PROBON_CONTRACT_ADDRESS` to the verified deployment address in Vercel's project environment variables.
-2. Trigger a new GitHub push so the automatic Vercel deployment includes the address.
-3. Connect a wallet on Arc Mainnet.
-4. Confirm the contract address shown in Settings matches the deployment you reviewed.
-5. Begin with a small amount of native USDC and test mandate creation, allowed payments, blocked recipients, limits, expiry, funding, and revocation.
+2. Set `VITE_PROBON_DEPLOYMENT_BLOCK` to the block number containing the deployment transaction. This narrows event queries to the contract's history.
+3. Trigger a new GitHub push so the automatic Vercel deployment includes the settings.
+4. Connect a wallet on Arc Mainnet.
+5. Confirm the contract address shown in Settings matches the deployment you reviewed.
+6. Begin with a small amount of native USDC and test mandate creation, allowed payments, blocked recipients, limits, expiry, funding, and revocation.
 
 A mainnet transaction can move real funds. Never paste a seed phrase or private key into the app, repository, chat, or Vercel environment variables. Deployment secrets should be supplied only to a secure local deployment process or an approved secret manager. Review the contract and obtain an independent security review before production use.
 
