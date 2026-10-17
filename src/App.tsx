@@ -76,7 +76,7 @@ function App() {
           setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
           setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
           setPaymentsCount(payments.length);
-          setRecentPayments(payments.slice(-4).reverse());
+          setRecentPayments(payments.slice(0, 4));
         }
       } catch {
         if (!cancelled) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); setRecentPayments([]); }
