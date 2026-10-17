@@ -14,3 +14,5 @@ export const ARC_RPC_URL = "https://rpc.mainnet.arc.io";
 export const ARC_EXPLORER_URL = "https://explorer.arc.io";
 export const NATIVE_USDC_DECIMALS = 18;
 export const PROBON_CONTRACT_ADDRESS = (import.meta.env.VITE_PROBON_CONTRACT_ADDRESS || "") as `0x${string}` | "";
+
+export const PROBON_DEPLOYMENT_BLOCK = import.meta.env.VITE_PROBON_DEPLOYMENT_BLOCK ? BigInt(import.meta.env.VITE_PROBON_DEPLOYMENT_BLOCK) : 0n;
