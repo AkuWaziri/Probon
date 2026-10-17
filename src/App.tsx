@@ -5,7 +5,7 @@ import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, lo
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
 import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, SettingsWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
-  Activity, ArrowDownLeft, ArrowUpRight, Bell, Bot, ChevronDown,
+  Activity, ArrowUpRight, Bell, Bot, ChevronDown,
   CircleHelp, ExternalLink, Fingerprint, Gauge,
   LayoutDashboard, LockKeyhole, Menu, Plus, Settings2, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Wallet, X
