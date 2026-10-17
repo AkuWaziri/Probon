@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { ArrowUpRight, Bot, CircleAlert, ExternalLink, Fingerprint, LoaderCircle, Plus, RefreshCw, ShieldCheck, Wallet, X } from "lucide-react";
 import type { Address } from "viem";
-import { ARC_EXPLORER_URL, NATIVE_USDC_DECIMALS, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
+import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
   createMandateOnChain, executePaymentOnChain, formatNativeUsdc, getContractAddress,
   loadMandates, loadPayments, publicClient, revokeMandateOnChain,
@@ -146,7 +146,7 @@ export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
   </>}</WorkspaceFrame>;
 }
 
-export function SecurityWorkspace({ account, onNotice }: SharedProps) {
+export function SecurityWorkspace({ account }: SharedProps) {
   const [mandates,setMandates]=useState<ProbonMandate[]>([]);
   useEffect(()=>{if(account&&PROBON_CONTRACT_ADDRESS)void loadMandates(account).then(setMandates).catch(()=>setMandates([]));else setMandates([]);},[account]);
   return <WorkspaceFrame title="Security" subtitle="Review the enforcement rules that protect each agent payment.">{!account?<WalletRequired account={account}/>:!PROBON_CONTRACT_ADDRESS?<ContractMissing/>:<><div className="security-feature-grid"><article><div className="mandate-icon"><Fingerprint size={19}/></div><strong>Recipient allowlist</strong><p>Payments to any address not explicitly allowed by a mandate revert.</p></article><article><div className="mandate-icon"><ShieldCheck size={19}/></div><strong>Per-payment cap</strong><p>Each payment is bounded by the mandate's max-per-transaction amount.</p></article><article><div className="mandate-icon"><RefreshCw size={19}/></div><strong>Daily spend limit</strong><p>Spend is counted by UTC-like chain timestamp day and enforced on-chain.</p></article><article><div className="mandate-icon"><X size={19}/></div><strong>Revoke & refund</strong><p>Mandate owners can revoke access and recover any remaining balance.</p></article></div><div className="workspace-toolbar"><span>Mandate security status</span><span>{mandates.filter(m=>m.active&&BigInt(Math.floor(Date.now()/1000))<m.expiresAt).length} active</span></div>{mandates.length===0?<div className="workspace-empty"><ShieldCheck size={25}/><strong>No mandate policies found</strong><span>Create a mandate to activate contract-enforced rules.</span></div>:<div className="mandate-list">{mandates.map(m=><article className="mandate-card security-row" key={m.id}><div className="mandate-card-top"><div className="mandate-icon"><ShieldCheck size={18}/></div><div className="mandate-title"><strong>Mandate #{m.id.toString()}</strong><span>{m.recipients.length} allowed recipient(s)</span></div><span className={"mandate-badge "+(m.active?"badge-active":"badge-off")}>{m.active?"ACTIVE":"REVOKED"}</span></div><p>Max payment {formatNativeUsdc(m.maxPerTx)} USDC · Daily cap {formatNativeUsdc(m.dailyLimit)} USDC · Expires {new Date(Number(m.expiresAt)*1000).toLocaleDateString()}</p></article>)}</div>}</>}</WorkspaceFrame>;
@@ -158,6 +158,6 @@ export function SettingsWorkspace({ account }: SharedProps) {
 
 const ARC_CHAIN_ID_LABEL = "5042";
 
-function WorkspaceFrame({title,subtitle,action,children}:{title:string;subtitle:string;action?:React.ReactNode;children:React.ReactNode}) {
+function WorkspaceFrame({title,subtitle,action,children}:{title:string;subtitle:string;action?:ReactNode;children:ReactNode}) {
   return <section className="workspace-page"><div className="workspace-page-heading"><div><div className="eyebrow">PROBON · ARC MAINNET</div><h1>{title}<span className="heading-period">.</span></h1><p>{subtitle}</p></div>{action}</div>{children}</section>;
 }
