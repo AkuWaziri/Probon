@@ -2,7 +2,7 @@ import {
   createPublicClient, createWalletClient, custom, decodeEventLog, formatUnits,
   getAddress, http, isAddress, parseAbiItem, parseUnits, type Address,
 } from "viem";
-import { arcMainnet, ARC_CHAIN_ID, ARC_RPC_URL, ARC_EXPLORER_URL, NATIVE_USDC_DECIMALS, PROBON_CONTRACT_ADDRESS } from "./arc";
+import { arcMainnet, ARC_CHAIN_ID, ARC_RPC_URL, ARC_EXPLORER_URL, NATIVE_USDC_DECIMALS, PROBON_CONTRACT_ADDRESS, PROBON_DEPLOYMENT_BLOCK } from "./arc";
 import { probonAbi } from "./probonAbi";
 
 const mandateCreatedEvent = parseAbiItem("event MandateCreated(uint256 indexed mandateId, address indexed owner, address indexed agent, uint256 maxPerTx, uint256 dailyLimit, uint64 expiresAt, uint256 initialFunding)");
@@ -104,7 +104,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const created = await publicClient.getLogs({
     address: contractAddress,
     event: mandateCreatedEvent,
-    fromBlock: 0n,
+    fromBlock: PROBON_DEPLOYMENT_BLOCK,
     toBlock: "latest",
   });
   const ids = [...new Set(created.flatMap((log) => {
@@ -123,7 +123,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
     const recipientLogs = await publicClient.getLogs({
       address: contractAddress,
       event: recipientConfiguredEvent,
-      fromBlock: 0n,
+      fromBlock: PROBON_DEPLOYMENT_BLOCK,
       toBlock: "latest",
     });
     const recipients = recipientLogs.flatMap((log) => {
@@ -141,7 +141,7 @@ export async function loadPayments(): Promise<ProbonPayment[]> {
   const logs = await publicClient.getLogs({
     address: contractAddress,
     event: paymentExecutedEvent,
-    fromBlock: 0n,
+    fromBlock: PROBON_DEPLOYMENT_BLOCK,
     toBlock: "latest",
   });
   return logs.slice(-50).reverse().map((log) => {
