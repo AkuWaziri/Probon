@@ -5,7 +5,7 @@ import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
   createMandateOnChain, executePaymentOnChain, formatNativeUsdc, getContractAddress,
   loadMandates, loadPayments, publicClient, revokeMandateOnChain,
-  fundMandateOnChain, type ProbonMandate, type ProbonPayment,
+  fundMandateOnChain, getContractOwner, getContractPauseState, setEmergencyPause, type ProbonMandate, type ProbonPayment,
 } from "../lib/probonClient";
 
 type SharedProps = { account: Address | null; onNotice: (message: string) => void };
@@ -146,10 +146,71 @@ export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
   </>}</WorkspaceFrame>;
 }
 
-export function SecurityWorkspace({ account }: SharedProps) {
-  const [mandates,setMandates]=useState<ProbonMandate[]>([]);
-  useEffect(()=>{if(account&&PROBON_CONTRACT_ADDRESS)void loadMandates(account).then(setMandates).catch(()=>setMandates([]));else setMandates([]);},[account]);
-  return <WorkspaceFrame title="Security" subtitle="Review the enforcement rules that protect each agent payment.">{!account?<WalletRequired/>:!PROBON_CONTRACT_ADDRESS?<ContractMissing/>:<><div className="security-feature-grid"><article><div className="mandate-icon"><Fingerprint size={19}/></div><strong>Recipient allowlist</strong><p>Payments to any address not explicitly allowed by a mandate revert.</p></article><article><div className="mandate-icon"><ShieldCheck size={19}/></div><strong>Per-payment cap</strong><p>Each payment is bounded by the mandate's max-per-transaction amount.</p></article><article><div className="mandate-icon"><RefreshCw size={19}/></div><strong>Daily spend limit</strong><p>Spend is counted by UTC-like chain timestamp day and enforced on-chain.</p></article><article><div className="mandate-icon"><X size={19}/></div><strong>Revoke & refund</strong><p>Mandate owners can revoke access and recover any remaining balance.</p></article></div><div className="workspace-toolbar"><span>Mandate security status</span><span>{mandates.filter(m=>m.active&&BigInt(Math.floor(Date.now()/1000))<m.expiresAt).length} active</span></div>{mandates.length===0?<div className="workspace-empty"><ShieldCheck size={25}/><strong>No mandate policies found</strong><span>Create a mandate to activate contract-enforced rules.</span></div>:<div className="mandate-list">{mandates.map(m=><article className="mandate-card security-row" key={m.id}><div className="mandate-card-top"><div className="mandate-icon"><ShieldCheck size={18}/></div><div className="mandate-title"><strong>Mandate #{m.id.toString()}</strong><span>{m.recipients.length} allowed recipient(s)</span></div><span className={"mandate-badge "+(m.active?"badge-active":"badge-off")}>{m.active?"ACTIVE":"REVOKED"}</span></div><p>Max payment {formatNativeUsdc(m.maxPerTx)} USDC · Daily cap {formatNativeUsdc(m.dailyLimit)} USDC · Expires {new Date(Number(m.expiresAt)*1000).toLocaleDateString()}</p></article>)}</div>}</>}</WorkspaceFrame>;
+export function SecurityWorkspace({ account, onNotice }: SharedProps) {
+  const [mandates, setMandates] = useState<ProbonMandate[]>([]);
+  const [contractOwner, setContractOwner] = useState<Address | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(async () => {
+    if (!account || !PROBON_CONTRACT_ADDRESS) {
+      setMandates([]); setContractOwner(null); setPaused(false); return;
+    }
+    try {
+      const [nextMandates, owner, pauseState] = await Promise.all([
+        loadMandates(account), getContractOwner(), getContractPauseState(),
+      ]);
+      setMandates(nextMandates);
+      setContractOwner(owner);
+      setPaused(pauseState);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to read contract security state.");
+    }
+  }, [account]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  async function togglePause() {
+    if (!account || !window.confirm(paused ? "Resume new payments across Probon?" : "Pause new payments across Probon? Existing mandate owners can still revoke and recover their remaining funds.")) return;
+    setBusy(true); setError("");
+    try {
+      const hash = await setEmergencyPause(account, !paused);
+      onNotice("Emergency control transaction submitted. Waiting for confirmation…");
+      await publicClient.waitForTransactionReceipt({ hash });
+      setPaused(!paused);
+      onNotice(paused ? "Probon global payment pause has been lifted." : "Probon global payment pause is active.");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to update the global pause.");
+    } finally { setBusy(false); }
+  }
+
+  return <WorkspaceFrame title="Security" subtitle="Review the enforcement rules that protect each agent payment.">
+    {!account ? <WalletRequired/> : !PROBON_CONTRACT_ADDRESS ? <ContractMissing/> : <>
+      {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
+      <article className="mandate-card global-pause-card">
+        <div className="mandate-card-top">
+          <div className="mandate-icon"><ShieldCheck size={19}/></div>
+          <div className="mandate-title"><strong>Global emergency pause</strong><span>{paused ? "New agent payments are blocked by the contract." : "The contract currently allows policy-valid payments."}</span></div>
+          <span className={"mandate-badge " + (paused ? "badge-off" : "badge-active")}>{paused ? "PAUSED" : "LIVE"}</span>
+        </div>
+        {contractOwner?.toLowerCase() === account.toLowerCase()
+          ? <button className={paused ? "primary-button" : "danger-button"} disabled={busy} onClick={() => void togglePause()}>{busy ? <LoaderCircle className="spin" size={15}/> : <ShieldCheck size={15}/>} {paused ? "Resume payments" : "Pause all payments"}</button>
+          : <p className="global-pause-note">Only the contract administrator can change the global pause. Any mandate owner can revoke their own mandate and recover its remaining funds.</p>}
+      </article>
+      <div className="security-feature-grid">
+        <article><div className="mandate-icon"><Fingerprint size={19}/></div><strong>Recipient allowlist</strong><p>Payments to any address not explicitly allowed by a mandate revert.</p></article>
+        <article><div className="mandate-icon"><ShieldCheck size={19}/></div><strong>Per-payment cap</strong><p>Each payment is bounded by the mandate's max-per-transaction amount.</p></article>
+        <article><div className="mandate-icon"><RefreshCw size={19}/></div><strong>Daily spend limit</strong><p>Spend is counted by chain timestamp day and enforced on-chain.</p></article>
+        <article><div className="mandate-icon"><X size={19}/></div><strong>Revoke & refund</strong><p>Mandate owners can revoke access and recover any remaining balance.</p></article>
+      </div>
+      <div className="workspace-toolbar"><span>Mandate security status</span><span>{mandates.filter(m => m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt).length} active</span></div>
+      {mandates.length === 0
+        ? <div className="workspace-empty"><ShieldCheck size={25}/><strong>No mandate policies found</strong><span>Create a mandate to activate contract-enforced rules.</span></div>
+        : <div className="mandate-list">{mandates.map(m => <article className="mandate-card security-row" key={m.id.toString()}><div className="mandate-card-top"><div className="mandate-icon"><ShieldCheck size={18}/></div><div className="mandate-title"><strong>Mandate #{m.id.toString()}</strong><span>{m.recipients.length} allowed recipient(s)</span></div><span className={"mandate-badge " + (m.active ? "badge-active" : "badge-off")}>{m.active ? "ACTIVE" : "REVOKED"}</span></div><p>Max payment {formatNativeUsdc(m.maxPerTx)} USDC · Daily cap {formatNativeUsdc(m.dailyLimit)} USDC · Expires {new Date(Number(m.expiresAt)*1000).toLocaleDateString()}</p></article>)}</div>}
+    </>}
+  </WorkspaceFrame>;
 }
 
 export function SettingsWorkspace({ account }: SharedProps) {
