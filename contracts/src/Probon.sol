@@ -31,6 +31,7 @@ contract Probon {
 
     event MandateCreated(uint256 indexed mandateId, address indexed owner, address indexed agent, uint256 maxPerTx, uint256 dailyLimit, uint64 expiresAt, uint256 initialFunding);
     event MandateFunded(uint256 indexed mandateId, address indexed funder, uint256 amount);
+    event RecipientConfigured(uint256 indexed mandateId, address indexed recipient);
     event PaymentExecuted(uint256 indexed mandateId, address indexed agent, address indexed recipient, uint256 amount, uint256 day);
     event MandateRevoked(uint256 indexed mandateId, uint256 refunded);
     event PauseChanged(bool paused);
@@ -73,7 +74,7 @@ contract Probon {
         uint128 maxPerTx,
         uint128 dailyLimit,
         uint64 expiresAt
-    ) external payable onlyOwner returns (uint256 mandateId) {
+    ) external payable returns (uint256 mandateId) {
         if (agent == address(0) || agent == msg.sender) revert InvalidAddress();
         if (recipients.length == 0 || recipients.length > MAX_RECIPIENTS) revert InvalidRecipients();
         if (maxPerTx == 0 || dailyLimit < maxPerTx || expiresAt < block.timestamp + MIN_EXPIRY || expiresAt > block.timestamp + MAX_EXPIRY) revert InvalidPolicy();
@@ -95,14 +96,16 @@ contract Probon {
             address recipient = recipients[i];
             if (recipient == address(0) || recipient == msg.sender || recipient == agent || recipientAllowed[mandateId][recipient]) revert InvalidRecipients();
             recipientAllowed[mandateId][recipient] = true;
+            emit RecipientConfigured(mandateId, recipient);
         }
 
         emit MandateCreated(mandateId, msg.sender, agent, maxPerTx, dailyLimit, expiresAt, msg.value);
         if (msg.value > 0) emit MandateFunded(mandateId, msg.sender, msg.value);
     }
 
-    function fundMandate(uint256 mandateId) external payable onlyOwner {
+    function fundMandate(uint256 mandateId) external payable {
         Mandate storage m = _getMandate(mandateId);
+        if (msg.sender != m.owner) revert Unauthorized();
         if (!m.active || block.timestamp >= m.expiresAt) revert MandateInactive();
         if (msg.value == 0 || uint256(m.balance) + msg.value > type(uint128).max) revert InvalidPolicy();
         m.balance += uint128(msg.value);
