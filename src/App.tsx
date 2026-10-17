@@ -87,6 +87,33 @@ function App() {
     return () => { cancelled = true; window.clearInterval(timer); };
   }, [walletAddress]);
 
+  useEffect(() => {
+    const provider = window.ethereum;
+    if (!provider?.on) return;
+    const onAccountsChanged = (accounts: unknown) => {
+      if (Array.isArray(accounts) && typeof accounts[0] === "string") {
+        setWalletAddress(accounts[0] as Address);
+        setNativeBalance(null);
+      } else {
+        setWalletAddress(null);
+        setNativeBalance(null);
+      }
+    };
+    const onChainChanged = (chainId: unknown) => {
+      if (typeof chainId === "string" && Number.parseInt(chainId, 16) !== ARC_CHAIN_ID) {
+        setNotice("Wallet network changed. Switch back to Arc Mainnet (chain ID 5042) to use Probon.");
+      } else {
+        setNotice("");
+      }
+    };
+    provider.on("accountsChanged", onAccountsChanged);
+    provider.on("chainChanged", onChainChanged);
+    return () => {
+      provider.removeListener?.("accountsChanged", onAccountsChanged);
+      provider.removeListener?.("chainChanged", onChainChanged);
+    };
+  }, []);
+
   return (
     <div className="app-shell">
       {mobileNav && <button className="mobile-scrim" aria-label="Close navigation" onClick={() => setMobileNav(false)} />}
@@ -175,7 +202,7 @@ function App() {
                 <article className="stat-card">
                   <div className="stat-top"><span>Recent spend</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
                   <div className="stat-value">{formatNativeUsdc(totalPaid)} <span className="stat-unit">USDC</span></div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> Across {paymentsCount} recent event(s), up to 50</div>
+                  <div className="stat-foot"><span className="status-dot neutral" /> Across up to 50 recent events ({paymentsCount} loaded)</div>
                 </article>
                 <article className="stat-card">
                   <div className="stat-top"><span>Policy enforcement</span><span className="stat-icon orange"><ShieldAlert size={17} /></span></div>
