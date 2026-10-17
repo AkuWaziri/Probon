@@ -95,14 +95,14 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const created = await publicClient.getLogs({
     address: contractAddress,
     event: probonAbi.find((item) => item.type === "event" && item.name === "MandateCreated") as never,
-    args: { owner },
     fromBlock: 0n,
     toBlock: "latest",
   });
-  const ids = [...new Set(created.map((log) => {
+  const ids = [...new Set(created.flatMap((log) => {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
-    return decoded.eventName === "MandateCreated" ? decoded.args.mandateId : 0n;
-  }).filter((id) => id > 0n))];
+    return decoded.eventName === "MandateCreated" && decoded.args.owner.toLowerCase() === owner.toLowerCase()
+      ? [decoded.args.mandateId] : [];
+  }))];
 
   const mandates = await Promise.all(ids.map(async (id) => {
     const raw = await publicClient.readContract({
@@ -114,14 +114,14 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
     const recipientLogs = await publicClient.getLogs({
       address: contractAddress,
       event: probonAbi.find((item) => item.type === "event" && item.name === "RecipientConfigured") as never,
-      args: { mandateId: id },
       fromBlock: 0n,
       toBlock: "latest",
     });
-    const recipients = recipientLogs.map((log) => {
+    const recipients = recipientLogs.flatMap((log) => {
       const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
-      return decoded.eventName === "RecipientConfigured" ? decoded.args.recipient : undefined;
-    }).filter((value): value is Address => Boolean(value));
+      return decoded.eventName === "RecipientConfigured" && decoded.args.mandateId === id
+        ? [decoded.args.recipient] : [];
+    });
     return { id, owner: raw[0], agent: raw[1], maxPerTx: raw[2], dailyLimit: raw[3], expiresAt: raw[4], balance: raw[5], totalSpent: raw[6], active: raw[7], recipients };
   }));
   return mandates.sort((a, b) => Number(b.id - a.id));
@@ -169,13 +169,13 @@ export async function createMandateOnChain(input: {
   const initialFunding = parseUnits(input.initialFunding || "0", NATIVE_USDC_DECIMALS);
   if (maxPerTx <= 0n || dailyLimit < maxPerTx) throw new Error("The daily limit must be at least as large as the per-payment limit.");
   if (input.expiryDays < 1 || input.expiryDays > 365) throw new Error("Expiry must be between 1 and 365 days.");
-  const expiresAt = BigInt(Math.floor(Date.now() / 1000) + input.expiryDays * 86400);
+  const expiresAt = BigInt(Math.floor(Date.now() / 1000) + input.expiryDays * 86400 - 60);
   const wallet = walletClientFor(input.account);
   return wallet.writeContract({
     address: contractAddress,
     abi: probonAbi,
     functionName: "createMandate",
-    args: [agent, recipients.map(getAddress), maxPerTx, dailyLimit, expiresAt],
+    args: [agent, recipients.map(value => getAddress(value)), maxPerTx, dailyLimit, expiresAt],
     value: initialFunding,
     account: input.account,
     chain: arcMainnet,
