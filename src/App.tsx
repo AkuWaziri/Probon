@@ -5,9 +5,9 @@ import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
 import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, SettingsWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
   Activity, ArrowDownLeft, ArrowUpRight, Bell, Bot, ChevronDown,
-  CircleHelp, CreditCard, ExternalLink, Fingerprint, Gauge,
+  CircleHelp, ExternalLink, Fingerprint, Gauge,
   LayoutDashboard, LockKeyhole, Menu, Plus, Settings2, Shield,
-  ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Wallet, X
+  ShieldAlert, ShieldCheck, SlidersHorizontal, Wallet, X
 } from "lucide-react";
 
 type NavItem = "Overview" | "Mandates" | "Agents" | "Transactions" | "Security" | "Settings";
@@ -37,6 +37,46 @@ function App() {
     setMobileNav(false);
     setNotice("");
   };
+
+  const handleWallet = async () => {
+    if (walletAddress) {
+      setWalletAddress(null);
+      setNativeBalance(null);
+      setNotice("Wallet disconnected from this app session.");
+      return;
+    }
+    setWalletBusy(true);
+    try {
+      const address = await connectWallet();
+      setWalletAddress(address);
+      const balance = await getNativeUsdcBalance(address);
+      setNativeBalance(balance);
+      setNotice("Wallet connected to Arc Mainnet.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Wallet connection failed.");
+    } finally {
+      setWalletBusy(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!walletAddress) { setMandateCount(0); return; }
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const [balance, mandates] = await Promise.all([getNativeUsdcBalance(walletAddress), loadMandates(walletAddress)]);
+        if (!cancelled) {
+          setNativeBalance(balance);
+          setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
+        }
+      } catch {
+        if (!cancelled) setMandateCount(0);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [walletAddress]);
 
   return (
     <div className="app-shell">
@@ -86,8 +126,8 @@ function App() {
           <div className="topbar-actions">
             <div className="network-pill"><span className="network-dot" /> Arc Testnet <ChevronDown size={13} /></div>
             <button className="icon-button notification-button" aria-label="Notifications" onClick={() => setNotice("You're all caught up. No new notifications.")}><Bell size={18} /><i /></button>
-            <button className={`connect-button ${walletConnected ? "connected-button" : ""}`} onClick={() => { setWalletConnected(!walletConnected); setNotice(walletConnected ? "Wallet disconnected in UI preview." : "Wallet connection is a UI preview. Blockchain integration comes next."); }}>
-              <Wallet size={16} /> {walletConnected ? "0x5bce…ea4c" : "Connect wallet"}
+            <button className={`connect-button ${walletAddress ? "connected-button" : ""}`} onClick={() => void handleWallet()} disabled={walletBusy}>
+              <Wallet size={16} /> {walletBusy ? "Connecting…" : walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Connect wallet"}
             </button>
           </div>
         </header>
@@ -115,13 +155,13 @@ function App() {
               <section className="stats-grid" aria-label="Account overview">
                 <article className="stat-card">
                   <div className="stat-top"><span>Protected balance</span><span className="stat-icon purple"><Wallet size={17} /></span></div>
-                  <div className="stat-value">$0.00 <span className="stat-unit">USDC</span></div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> Connect a wallet to view funds</div>
+                  <div className="stat-value">{nativeBalance === null ? "—" : formatNativeUsdc(nativeBalance)} <span className="stat-unit">USDC</span></div>
+                  <div className="stat-foot"><span className="status-dot neutral" /> {walletAddress ? "Arc Mainnet wallet balance" : "Connect wallet to read balance"}</div>
                 </article>
                 <article className="stat-card">
                   <div className="stat-top"><span>Active mandates</span><span className="stat-icon cyan"><Fingerprint size={17} /></span></div>
-                  <div className="stat-value">0 <span className="stat-unit">mandates</span></div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> No agents authorized yet</div>
+                  <div className="stat-value">{mandateCount} <span className="stat-unit">mandates</span></div>
+                  <div className="stat-foot"><span className="status-dot neutral" /> {walletAddress ? "Active on-chain mandates" : "Connect wallet to load mandates"}</div>
                 </article>
                 <article className="stat-card">
                   <div className="stat-top"><span>Payments this month</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
