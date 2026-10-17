@@ -1,4 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Address } from "viem";
+import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates } from "./lib/probonClient";
+import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
+import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, SettingsWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
   Activity, ArrowDownLeft, ArrowUpRight, Bell, Bot, ChevronDown,
   CircleHelp, CreditCard, ExternalLink, Fingerprint, Gauge,
@@ -17,24 +21,21 @@ const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
   { label: "Settings", icon: Settings2 },
 ];
 
-const transactions = [
-  { name: "OpenAI API", detail: "Research agent · 0x71c…8a21", amount: "-$1.20", time: "2 min ago", state: "Approved", kind: "out" },
-  { name: "Vector DB credits", detail: "Knowledge agent · 0x8fd…4c10", amount: "-$0.85", time: "18 min ago", state: "Approved", kind: "out" },
-  { name: "Unknown recipient", detail: "Research agent · 0x71c…8a21", amount: "$12.00", time: "34 min ago", state: "Blocked", kind: "blocked" },
-  { name: "Agent treasury", detail: "Main wallet · Funding", amount: "+$25.00", time: "1 hr ago", state: "Received", kind: "in" },
-];
+const transactions: { name: string; detail: string; amount: string; time: string; state: string; kind: string }[] = [];
 
 function App() {
   const [active, setActive] = useState<NavItem>("Overview");
-  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<Address | null>(null);
+  const [nativeBalance, setNativeBalance] = useState<bigint | null>(null);
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [mandateCount, setMandateCount] = useState(0);
   const [mobileNav, setMobileNav] = useState(false);
   const [notice, setNotice] = useState("");
 
   const handleNav = (label: NavItem) => {
     setActive(label);
     setMobileNav(false);
-    if (label !== "Overview") setNotice(label + " workspace is being prepared.");
-    else setNotice("");
+    setNotice("");
   };
 
   return (
@@ -172,20 +173,21 @@ function App() {
                     <tbody>{transactions.slice(0, 3).map((tx) => <tr key={tx.name}><td><div className="transaction-name"><span className={`tx-icon tx-${tx.kind}`}>{tx.kind === "blocked" ? <ShieldAlert size={15} /> : tx.kind === "in" ? <ArrowDownLeft size={15} /> : <ArrowUpRight size={15} />}</span><strong>{tx.name}</strong></div></td><td className="tx-detail">{tx.detail}</td><td className={`tx-amount ${tx.kind === "in" ? "amount-in" : tx.kind === "blocked" ? "amount-blocked" : ""}`}>{tx.amount}</td><td className="tx-time">{tx.time}</td><td><span className={`tx-status status-${tx.kind}`}><span />{tx.state}</span></td><td><button className="row-action" aria-label={`Open ${tx.name} details`} onClick={() => setNotice("Transaction details will be available after on-chain integration.")}><ExternalLink size={14} /></button></td></tr>)}</tbody>
                   </table>
                 </div>
-                <div className="table-foot"><span><span className="status-dot neutral" /> Preview data only · No on-chain activity connected</span><button onClick={() => handleNav("Transactions")}>Explore transactions <ArrowUpRight size={14} /></button></div>
+                <div className="table-foot"><span><span className="status-dot neutral" /> {PROBON_CONTRACT_ADDRESS ? "Live contract integration" : "No contract address configured yet"}</span><button onClick={() => handleNav("Transactions")}>Explore transactions <ArrowUpRight size={14} /></button></div>
               </section>
 
-              <footer className="page-footer"><span>© 2026 Probon</span><span><span className="footer-dot" /> Built for safer agent payments</span><button onClick={() => setNotice("Arc network integration is planned for the next build phase.")}>Arc Testnet preview <ExternalLink size={12} /></button></footer>
+              <footer className="page-footer"><span>© 2026 Probon</span><span><span className="footer-dot" /> Built for safer agent payments</span><button onClick={() => handleNav("Settings")}>Arc Mainnet · {ARC_CHAIN_ID} <ExternalLink size={12} /></button></footer>
             </>
+          ) : active === "Mandates" ? (
+            <MandatesWorkspace account={walletAddress} onNotice={setNotice} />
+          ) : active === "Agents" ? (
+            <AgentsWorkspace account={walletAddress} onNotice={setNotice} />
+          ) : active === "Transactions" ? (
+            <TransactionsWorkspace account={walletAddress} onNotice={setNotice} />
+          ) : active === "Security" ? (
+            <SecurityWorkspace account={walletAddress} onNotice={setNotice} />
           ) : (
-            <section className="workspace-placeholder">
-              <div className="placeholder-icon">{active === "Mandates" ? <Fingerprint size={24} /> : active === "Agents" ? <Bot size={24} /> : active === "Transactions" ? <CreditCard size={24} /> : active === "Security" ? <ShieldCheck size={24} /> : <Settings2 size={24} />}</div>
-              <div className="eyebrow">PROBON WORKSPACE</div>
-              <h1>{active}<span className="heading-period">.</span></h1>
-              <p>{active === "Mandates" ? "Create policy-bound permissions for your AI agents." : active === "Agents" ? "Manage agent identities and their payment permissions." : active === "Transactions" ? "Inspect settled payments and blocked attempts." : active === "Security" ? "Define spending boundaries and emergency controls." : "Manage your wallet and workspace preferences."}</p>
-              <div className="placeholder-note"><Sparkles size={16} /><span>This workspace is part of the next implementation step. The current dashboard is a UI foundation; wallet and contract operations are not connected yet.</span></div>
-              {active === "Mandates" && <button className="primary-button" onClick={() => setNotice("Mandate creation will be implemented after the contract architecture is verified.")}><Plus size={17} /> New mandate</button>}
-            </section>
+            <SettingsWorkspace account={walletAddress} onNotice={setNotice} />
           )}
         </div>
       </main>
