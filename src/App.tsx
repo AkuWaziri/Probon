@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
-  Activity, ArrowDownLeft, ArrowUpRight, Bell, Bot, Check, ChevronDown,
-  CircleHelp, Command, CreditCard, ExternalLink, Fingerprint, Gauge,
-  LayoutDashboard, LockKeyhole, Menu, Plus, Search, Settings2, Shield,
+  Activity, ArrowDownLeft, ArrowUpRight, Bell, Bot, ChevronDown,
+  CircleHelp, CreditCard, ExternalLink, Fingerprint, Gauge,
+  LayoutDashboard, LockKeyhole, Menu, Plus, Settings2, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Sparkles, Wallet, X
 } from "lucide-react";
 
