@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Address } from "viem";
-import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates } from "./lib/probonClient";
+import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
 import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, SettingsWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
@@ -29,6 +29,8 @@ function App() {
   const [nativeBalance, setNativeBalance] = useState<bigint | null>(null);
   const [walletBusy, setWalletBusy] = useState(false);
   const [mandateCount, setMandateCount] = useState(0);
+  const [totalPaid, setTotalPaid] = useState(0n);
+  const [paymentsCount, setPaymentsCount] = useState(0);
   const [mobileNav, setMobileNav] = useState(false);
   const [notice, setNotice] = useState("");
 
@@ -60,17 +62,23 @@ function App() {
   };
 
   useEffect(() => {
-    if (!walletAddress) { setMandateCount(0); return; }
+    if (!walletAddress) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); return; }
     let cancelled = false;
     const refresh = async () => {
       try {
-        const [balance, mandates] = await Promise.all([getNativeUsdcBalance(walletAddress), loadMandates(walletAddress)]);
+        const [balance, mandates, payments] = await Promise.all([
+          getNativeUsdcBalance(walletAddress),
+          PROBON_CONTRACT_ADDRESS ? loadMandates(walletAddress) : Promise.resolve([]),
+          PROBON_CONTRACT_ADDRESS ? loadPayments() : Promise.resolve([]),
+        ]);
         if (!cancelled) {
           setNativeBalance(balance);
           setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
+          setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
+          setPaymentsCount(payments.length);
         }
       } catch {
-        if (!cancelled) setMandateCount(0);
+        if (!cancelled) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); }
       }
     };
     void refresh();
@@ -90,7 +98,7 @@ function App() {
 
         <div className="workspace-switcher">
           <div className="workspace-avatar">A</div>
-          <div className="workspace-copy"><strong>Acme Studio</strong><span>Personal workspace</span></div>
+          <div className="workspace-copy"><strong>My workspace</strong><span>Personal workspace</span></div>
           <ChevronDown size={15} className="muted-icon" />
         </div>
 
@@ -99,7 +107,7 @@ function App() {
           {navItems.map(({ label, icon: Icon }) => (
             <button key={label} className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNav(label)}>
               <Icon size={18} strokeWidth={1.8} /><span>{label}</span>
-              {label === "Security" && <span className="nav-count">2</span>}
+              
             </button>
           ))}
         </nav>
@@ -111,7 +119,7 @@ function App() {
           </div>
           <button className="profile-row" onClick={() => handleNav("Settings")}>
             <div className="profile-avatar">AW</div>
-            <div className="profile-copy"><strong>Workspace owner</strong><span>Owner access</span></div>
+            <div className="profile-copy"><strong>Connected wallet</strong><span>{walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Not connected"}</span></div>
             <ChevronDown size={15} className="muted-icon" />
           </button>
         </div>
@@ -125,7 +133,7 @@ function App() {
           </div>
           <div className="topbar-actions">
             <div className="network-pill"><span className="network-dot" /> Arc Testnet <ChevronDown size={13} /></div>
-            <button className="icon-button notification-button" aria-label="Notifications" onClick={() => setNotice("You're all caught up. No new notifications.")}><Bell size={18} /><i /></button>
+            <button className="icon-button notification-button" aria-label="Network status" onClick={() => handleNav("Settings")}><Bell size={18} /></button>
             <button className={`connect-button ${walletAddress ? "connected-button" : ""}`} onClick={() => void handleWallet()} disabled={walletBusy}>
               <Wallet size={16} /> {walletBusy ? "Connecting…" : walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Connect wallet"}
             </button>
@@ -164,14 +172,14 @@ function App() {
                   <div className="stat-foot"><span className="status-dot neutral" /> {walletAddress ? "Active on-chain mandates" : "Connect wallet to load mandates"}</div>
                 </article>
                 <article className="stat-card">
-                  <div className="stat-top"><span>Payments this month</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
-                  <div className="stat-value">$0.00 <span className="stat-unit">USDC</span></div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> Activity appears here</div>
+                  <div className="stat-top"><span>Total paid</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
+                  <div className="stat-value">{formatNativeUsdc(totalPaid)} <span className="stat-unit">USDC</span></div>
+                  <div className="stat-foot"><span className="status-dot neutral" /> {paymentsCount} confirmed payment(s)</div>
                 </article>
                 <article className="stat-card">
-                  <div className="stat-top"><span>Blocked attempts</span><span className="stat-icon orange"><ShieldAlert size={17} /></span></div>
-                  <div className="stat-value">0 <span className="stat-unit">blocked</span></div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> Policy checks are not active</div>
+                  <div className="stat-top"><span>Policy enforcement</span><span className="stat-icon orange"><ShieldAlert size={17} /></span></div>
+                  <div className="stat-value">{PROBON_CONTRACT_ADDRESS ? "ON-CHAIN" : "SETUP"}</div>
+                  <div className="stat-foot"><span className="status-dot neutral" /> {PROBON_CONTRACT_ADDRESS ? "Rules enforced by contract" : "Contract deployment required"}</div>
                 </article>
               </section>
 
@@ -200,7 +208,7 @@ function App() {
                     <button className="control-row" onClick={() => handleNav("Mandates")}><span className="control-icon"><Fingerprint size={17} /></span><span className="control-copy"><strong>Spending mandates</strong><small>Define what agents can spend</small></span><span className="control-state pending">Not set</span><ChevronDown size={15} className="control-chevron" /></button>
                     <button className="control-row" onClick={() => handleNav("Security")}><span className="control-icon"><LockKeyhole size={17} /></span><span className="control-copy"><strong>Recipient allowlist</strong><small>Restrict payments to trusted addresses</small></span><span className="control-state pending">Not set</span><ChevronDown size={15} className="control-chevron" /></button>
                     <button className="control-row" onClick={() => handleNav("Security")}><span className="control-icon"><Gauge size={17} /></span><span className="control-copy"><strong>Spending limits</strong><small>Set transaction and daily caps</small></span><span className="control-state pending">Not set</span><ChevronDown size={15} className="control-chevron" /></button>
-                    <button className="control-row" onClick={() => handleNav("Security")}><span className="control-icon"><ShieldCheck size={17} /></span><span className="control-copy"><strong>Emergency stop</strong><small>Revoke agent permissions quickly</small></span><span className="control-state ready">Available</span><ChevronDown size={15} className="control-chevron" /></button>
+                    <button className="control-row" onClick={() => handleNav("Security")}><span className="control-icon"><ShieldCheck size={17} /></span><span className="control-copy"><strong>Global emergency pause</strong><small>Contract owner can halt new payments</small></span><span className="control-state ready">Admin only</span><ChevronDown size={15} className="control-chevron" /></button>
                   </div>
                   <button className="outline-button full-width" onClick={() => handleNav("Security")}><SlidersHorizontal size={15} /> Configure security</button>
                 </article>
