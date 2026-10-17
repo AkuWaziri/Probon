@@ -62,24 +62,19 @@ function App() {
   };
 
   useEffect(() => {
-    if (!walletAddress) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); setRecentPayments([]); return; }
     let cancelled = false;
     const refresh = async () => {
-      try {
-        const [balance, mandates, payments] = await Promise.all([
-          getNativeUsdcBalance(walletAddress),
-          PROBON_CONTRACT_ADDRESS ? loadMandates(walletAddress) : Promise.resolve([]),
-          PROBON_CONTRACT_ADDRESS ? loadPayments() : Promise.resolve([]),
-        ]);
-        if (!cancelled) {
-          setNativeBalance(balance);
-          setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
-          setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
-          setPaymentsCount(payments.length);
-          setRecentPayments(payments.slice(0, 4));
-        }
-      } catch {
-        if (!cancelled) { setMandateCount(0); setTotalPaid(0n); setPaymentsCount(0); setRecentPayments([]); }
+      const [balance, mandates, payments] = await Promise.all([
+        walletAddress ? getNativeUsdcBalance(walletAddress).catch(() => null) : Promise.resolve(null),
+        walletAddress && PROBON_CONTRACT_ADDRESS ? loadMandates(walletAddress).catch(() => []) : Promise.resolve([]),
+        PROBON_CONTRACT_ADDRESS ? loadPayments().catch(() => []) : Promise.resolve([]),
+      ]);
+      if (!cancelled) {
+        setNativeBalance(balance);
+        setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
+        setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
+        setPaymentsCount(payments.length);
+        setRecentPayments(payments.slice(0, 4));
       }
     };
     void refresh();
