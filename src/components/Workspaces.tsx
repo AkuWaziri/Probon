@@ -13,7 +13,7 @@ const short = (value: string) => value.length > 14 ? value.slice(0, 7) + "…" +
 const explorerTx = (hash: string) => ARC_EXPLORER_URL + "/tx/" + hash;
 const explorerAddress = (address: string) => ARC_EXPLORER_URL + "/address/" + address;
 
-function WalletRequired({ account }: { account: Address | null }) {
+function WalletRequired() {
   return <div className="workspace-empty"><Wallet size={25}/><strong>Connect a wallet to continue</strong><span>Connect an EVM wallet on Arc Mainnet to read and manage on-chain data.</span></div>;
 }
 
@@ -90,7 +90,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
     finally { setSubmitting(false); }
   }
 
-  if (!account) return <WorkspaceFrame title="Mandates" subtitle="Create programmable spending permissions enforced by the Probon contract."><WalletRequired account={account}/></WorkspaceFrame>;
+  if (!account) return <WorkspaceFrame title="Mandates" subtitle="Create programmable spending permissions enforced by the Probon contract."><WalletRequired/></WorkspaceFrame>;
   return <WorkspaceFrame title="Mandates" subtitle="Each mandate sets the agent, allowed recipients, payment cap, daily cap, expiry, and funded balance." action={<button className="primary-button" onClick={() => setShowForm(!showForm)}><Plus size={16}/>{showForm ? "Close form" : "Create mandate"}</button>}>
     {!PROBON_CONTRACT_ADDRESS && <ContractMissing/>}
     {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
