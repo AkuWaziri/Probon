@@ -219,6 +219,7 @@ body, .app-shell { background: #f7f6fb; color: #17131f; }
 .breadcrumb strong { color: #17131f; }
 .crumb-slash { color: #c5bbd8; }
 .network-pill { background: #ffffff; border-color: #ded7ed; color: #35264d; }
+.arc-network-logo { display: block; width: 19px; height: 19px; flex: 0 0 19px; }
 .network-dot, .footer-dot { background: #7c3aed; box-shadow: 0 0 8px #7c3aed44; }
 .icon-button { color: #61576f; }
 .icon-button:hover { background: #f0eafd; color: #4f20a8; }
