@@ -294,7 +294,6 @@ export function SecurityWorkspace({ account, onNotice }: SharedProps) {
   </WorkspaceFrame>;
 }
 
-const ARC_CHAIN_ID_LABEL = "5042";
 
 function WorkspaceFrame({title,subtitle,action,children}:{title:string;subtitle:string;action?:ReactNode;children:ReactNode}) {
   return <section className="workspace-page"><div className="workspace-page-heading"><div><div className="eyebrow">PROBON · ARC MAINNET</div><h1>{title}<span className="heading-period">.</span></h1><p>{subtitle}</p></div>{action}</div>{children}</section>;
