@@ -171,7 +171,6 @@ function App() {
             <>
               <section className="welcome-row">
                 <div>
-                  <div className="eyebrow"><span className="eyebrow-dot" /> AGENT PAYMENT CONTROL</div>
                   <h1>Good afternoon<span className="heading-period">.</span></h1>
                   <p className="page-subtitle">Your agents are working. Your rules are in control.</p>
                 </div>
@@ -200,11 +199,6 @@ function App() {
                   <div className="stat-top"><span>Recent spend</span><span className="stat-icon green"><ArrowUpRight size={17} /></span></div>
                   <div className="stat-value">{formatNativeUsdc(totalPaid)} <span className="stat-unit">USDC</span></div>
                   <div className="stat-foot"><span className="status-dot neutral" /> Across up to 50 recent events ({paymentsCount} loaded)</div>
-                </article>
-                <article className="stat-card">
-                  <div className="stat-top"><span>Policy enforcement</span><span className="stat-icon orange"><ShieldAlert size={17} /></span></div>
-                  <div className="stat-value">{PROBON_CONTRACT_ADDRESS ? "ON-CHAIN" : "SETUP"}</div>
-                  <div className="stat-foot"><span className="status-dot neutral" /> {PROBON_CONTRACT_ADDRESS ? "Rules enforced by contract" : "Contract deployment required"}</div>
                 </article>
               </section>
 
