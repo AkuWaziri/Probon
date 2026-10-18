@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Address } from "viem";
-import { AlertCircle, ExternalLink, Fingerprint, LoaderCircle, RefreshCw, Wallet, WalletCards } from "lucide-react";
+import { AlertCircle, ExternalLink, LoaderCircle, RefreshCw, Wallet, WalletCards } from "lucide-react";
 import { ARC_EXPLORER_URL } from "../lib/arc";
 import { formatNativeUsdc, getNativeUsdcBalance } from "../lib/probonClient";
 
