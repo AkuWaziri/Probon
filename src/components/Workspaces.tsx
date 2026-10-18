@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bot, BrainCircuit, CircleAlert, Download, ExternalLink, Fingerprint, LoaderCircle, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, WalletCards, X } from "lucide-react";
+import { ArrowUpRight, Bot, CircleAlert, Download, ExternalLink, Fingerprint, LoaderCircle, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, WalletCards, X } from "lucide-react";
 import type { Address } from "viem";
 import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
@@ -301,12 +301,8 @@ type ArcMarket = {
 };
 
 export function MarketResearchWorkspace() {
-  const [asset, setAsset] = useState("");
-  const [snapshot, setSnapshot] = useState("");
   const [query, setQuery] = useState("");
   const [markets, setMarkets] = useState<ArcMarket[]>([]);
-  const [analysis, setAnalysis] = useState("");
-  const [loading, setLoading] = useState(false);
   const [fetchingMarkets, setFetchingMarkets] = useState(false);
   const [error, setError] = useState("");
   const [marketTimestamp, setMarketTimestamp] = useState("");
@@ -314,7 +310,7 @@ export function MarketResearchWorkspace() {
   async function fetchMarkets(event?: FormEvent) {
     event?.preventDefault();
     if (!query.trim()) { setError("Enter an Arc token name, symbol, or contract address."); return; }
-    setFetchingMarkets(true); setError(""); setMarkets([]); setAnalysis("");
+    setFetchingMarkets(true); setError(""); setMarkets([]);
     try {
       const response = await fetch("/api/arc-markets?q=" + encodeURIComponent(query.trim()));
       const payload = await response.json() as { markets?: ArcMarket[]; updatedAt?: string; error?: string };
@@ -327,49 +323,16 @@ export function MarketResearchWorkspace() {
     } finally { setFetchingMarkets(false); }
   }
 
-  function selectMarket(market: ArcMarket) {
-    setAsset(market.pairLabel);
-    setSnapshot(market.snapshot);
-    setError("");
-    setAnalysis("");
-  }
-
-  async function research(event: FormEvent) {
-    event.preventDefault();
-    if (!asset.trim() || !snapshot.trim()) { setError("Fetch and select an Arc market, or enter a token and market snapshot manually."); return; }
-    setLoading(true); setError(""); setAnalysis("");
-    try {
-      const response = await fetch("/api/market-research", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ asset: asset.trim(), snapshot: snapshot.trim() }),
-      });
-      const payload = await response.json() as { analysis?: string; error?: string };
-      if (!response.ok) throw new Error(payload.error || "AI market research is temporarily unavailable.");
-      setAnalysis(payload.analysis || "No analysis was returned.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not generate market research.");
-    } finally { setLoading(false); }
-  }
-
-  return <WorkspaceFrame title="AI Market Research" subtitle="Find live Arc Mainnet DEX markets, inspect available metrics, and generate AI analysis from the selected market data.">
-    <div className="research-source-card"><div className="mandate-icon"><BrainCircuit size={19}/></div><div><strong>Live Arc Mainnet market data</strong><p>Searches Arc markets through a public market-data API. Metrics are indexed observations, can be delayed or missing, and are not executable swap quotes. Research stays on Arc Mainnet.</p><a href="https://arcdexscan.com/" target="_blank" rel="noreferrer">Open Arc DEX Scan <ExternalLink size={13}/></a><a href="https://arcscreener.io/" target="_blank" rel="noreferrer">Open Arc DEX Screener <ExternalLink size={13}/></a></div></div>
+  return <WorkspaceFrame title="Market Research" subtitle="Find and inspect live Arc Mainnet DEX market data.">
+    <div className="research-source-card"><div className="mandate-icon"><TrendingUp size={19}/></div><div><strong>Live Arc Mainnet market data</strong><p>Searches Arc markets through a public market-data API. Metrics are indexed observations, can be delayed or missing, and are not executable swap quotes. Research stays on Arc Mainnet.</p><a href="https://arcdexscan.com/" target="_blank" rel="noreferrer">Open Arc DEX Scan <ExternalLink size={13}/></a><a href="https://arcscreener.io/" target="_blank" rel="noreferrer">Open Arc DEX Screener <ExternalLink size={13}/></a></div></div>
     <form className="mandate-form research-form" onSubmit={fetchMarkets}>
       <div className="form-heading"><div><h3>Find an Arc market</h3><p>Search by token symbol, name, or contract address.</p></div></div>
       <label>Token / contract<input required value={query} onChange={e=>setQuery(e.target.value)} placeholder="e.g. token symbol or 0x…" autoComplete="off"/></label>
       <button className="primary-button" type="submit" disabled={fetchingMarkets}>{fetchingMarkets ? <LoaderCircle className="spin" size={16}/> : <TrendingUp size={16}/>} {fetchingMarkets ? "Fetching Arc markets…" : "Fetch live Arc markets"}</button>
     </form>
     {marketTimestamp && markets.length > 0 && <div className="market-results-heading"><strong>{markets.length} Arc market{markets.length===1?"":"s"} found</strong><span>Fetched {new Date(marketTimestamp).toLocaleString()}</span></div>}
-    {markets.length > 0 && <div className="arc-market-list">{markets.map(market => <article className={"arc-market-card" + (asset===market.pairLabel ? " selected" : "")} key={market.pairAddress}><div className="arc-market-top"><div><strong>{market.pairLabel}</strong><span>{market.dexId} · {market.pairAddress.slice(0,7)+"…"+market.pairAddress.slice(-5)}</span></div><strong>{market.priceUsd ? "$"+Number(market.priceUsd).toLocaleString(undefined,{maximumSignificantDigits:8}) : "Price unavailable"}</strong></div><div className="arc-market-metrics"><div><span>24h change</span><strong>{market.change24h===null?"—":(market.change24h>0?"+":"")+market.change24h.toFixed(2)+"%"}</strong></div><div><span>24h volume</span><strong>{market.volume24h===null?"—":"$"+market.volume24h.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>Liquidity</span><strong>{market.liquidityUsd===null?"—":"$"+market.liquidityUsd.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>FDV</span><strong>{market.fdv===null?"—":"$"+market.fdv.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div></div><div className="arc-market-actions"><a href={market.url} target="_blank" rel="noreferrer">View market <ExternalLink size={13}/></a><button className="subtle-button" onClick={()=>selectMarket(market)}>{asset===market.pairLabel?"Selected for research":"Analyze this market"}</button></div></article>)}</div>}
-    <form className="mandate-form research-form" onSubmit={research}>
-      <div className="form-heading"><div><h3>AI market analysis</h3><p>Select a live market above, or enter a snapshot manually. Never include private keys or seed phrases.</p></div></div>
-      <label>Selected token / pair<input required value={asset} onChange={e=>setAsset(e.target.value)} placeholder="Choose a market above or enter a token/pair"/></label>
-      <label>Market snapshot<textarea required rows={6} value={snapshot} onChange={e=>setSnapshot(e.target.value)} placeholder={"Choose a live market above to populate this field, or paste current price, 24h change, volume, liquidity, and observations."} maxLength={8000}/><span className="field-hint">Market data and source timestamp are passed to the AI. Maximum 8,000 characters.</span></label>
-      <div className="form-note"><ShieldCheck size={16}/><span>AI research is informational. It does not execute trades, verify token safety, or guarantee returns.</span></div>
-      <button className="primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <BrainCircuit size={16}/>} {loading ? "Analyzing Arc market…" : "Generate AI research"}</button>
-    </form>
+    {markets.length > 0 && <div className="arc-market-list">{markets.map(market => <article className="arc-market-card" key={market.pairAddress}><div className="arc-market-top"><div><strong>{market.pairLabel}</strong><span>{market.dexId} · {market.pairAddress.slice(0,7)+"…"+market.pairAddress.slice(-5)}</span></div><strong>{market.priceUsd ? "$"+Number(market.priceUsd).toLocaleString(undefined,{maximumSignificantDigits:8}) : "Price unavailable"}</strong></div><div className="arc-market-metrics"><div><span>24h change</span><strong>{market.change24h===null?"—":(market.change24h>0?"+":"")+market.change24h.toFixed(2)+"%"}</strong></div><div><span>24h volume</span><strong>{market.volume24h===null?"—":"$"+market.volume24h.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>Liquidity</span><strong>{market.liquidityUsd===null?"—":"$"+market.liquidityUsd.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>FDV</span><strong>{market.fdv===null?"—":"$"+market.fdv.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div></div><div className="arc-market-actions"><a href={market.url} target="_blank" rel="noreferrer">View market <ExternalLink size={13}/></a></div></article>)}</div>}
     {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
-    {analysis && <article className="mandate-card research-result"><div className="mandate-card-top"><div className="mandate-icon"><BrainCircuit size={19}/></div><div className="mandate-title"><strong>Research summary · {asset}</strong><span>Based on indexed Arc market data and any additional supplied context</span></div></div><div className="research-analysis">{analysis}</div><small className="portfolio-caption">Verify current market conditions and token contracts before acting. Market observations may be incomplete or stale. This analysis does not execute trades.</small></article>}
   </WorkspaceFrame>;
 }
 
