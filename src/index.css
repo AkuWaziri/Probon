@@ -224,9 +224,9 @@ body, .app-shell { background: #f7f6fb; color: #17131f; }
 .icon-button:hover { background: #f0eafd; color: #4f20a8; }
 .notification-button { border-color: #e2dced; }
 .notification-button i { background: #7c3aed; }
-.connect-button, .primary-button { background: #6d35d4; border-color: #6d35d4; color: #ffffff; box-shadow: 0 5px 15px #6d35d425; }
-.connect-button:hover, .primary-button:hover { background: #5723b5; }
-.connected-button { background: #efe7ff; border-color: #c9b1ff; color: #51219b; }
+.connect-button, .primary-button { background: #000000; border-color: #000000; color: #ffffff; box-shadow: 0 5px 15px #0000001a; }
+.connect-button:hover, .primary-button:hover { background: #222222; border-color: #222222; }
+.connected-button { background: #000000; border-color: #000000; color: #ffffff; }
 .page-content { color: #17131f; }
 .eyebrow { color: #6d35d4; }
 .eyebrow-dot { background: #7c3aed; box-shadow: 0 0 7px #7c3aed44; }
