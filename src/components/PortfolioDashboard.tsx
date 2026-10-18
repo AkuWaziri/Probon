@@ -154,7 +154,8 @@ export function PortfolioDashboard({ account }: { account: Address | null }) {
     try { setBalance(await getNativeUsdcBalance(account)); }
     catch { setBalance(null); setError("Native USDC balance could not be read from Arc Mainnet."); }
     try { setAavePositions(await aaveRequest); }
-    catch { setAavePositions([]); setAaveError("Aave V4 positions could not be loaded from Arc Mainnet. Refresh to retry; balances are not estimated."); }\n    try { setTokens(await tokenRequest); }
+    catch { setAavePositions([]); setAaveError("Aave V4 positions could not be loaded from Arc Mainnet. Refresh to retry; balances are not estimated."); }
+    try { setTokens(await tokenRequest); }
     catch { setTokens([]); setTokenError("Token holdings could not be loaded from Arcscan. Refresh to retry; balances are not estimated."); }
     try { setMorphoPositions(await morphoRequest); }
     catch { setMorphoPositions([]); setMorphoError("Morpho lending positions could not be loaded. Refresh to retry; balances are not estimated."); }
