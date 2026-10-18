@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ArrowUpRight, Bot, CircleAlert, ExternalLink, Fingerprint, LoaderCircle, Plus, RefreshCw, ShieldCheck, Wallet, X } from "lucide-react";
+import { ArrowUpRight, Bot, BrainCircuit, CircleAlert, Download, ExternalLink, Fingerprint, LoaderCircle, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, WalletCards, X } from "lucide-react";
 import type { Address } from "viem";
 import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
@@ -192,7 +192,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
     {loading ? <div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Reading Arc Mainnet…</span></div> : mandates.length === 0 ? <div className="workspace-empty"><Fingerprint size={26}/><strong>No mandates yet</strong><span>Create your first on-chain spending policy. Nothing is stored until a wallet transaction confirms.</span>{PROBON_CONTRACT_ADDRESS && <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={16}/> Create mandate</button>}</div> :
       <div className="mandate-list">{mandates.map(m => <article className="mandate-card" key={m.id}>
         <div className="mandate-card-top"><div className="mandate-icon"><Fingerprint size={18}/></div><div className="mandate-title"><strong>Mandate #{m.id.toString()}</strong><span>{m.active ? (BigInt(Math.floor(Date.now()/1000)) >= m.expiresAt ? "Expired" : "Active") : "Revoked"}</span></div><span className={"mandate-badge " + (m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "badge-active" : "badge-off")}>{m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "ENFORCED" : "INACTIVE"}</span></div>
-        <div className="mandate-stats"><div><span>Available balance</span><strong>{formatNativeUsdc(m.balance)} USDC</strong></div><div><span>Max per payment</span><strong>{formatNativeUsdc(m.maxPerTx)} USDC</strong></div><div><span>Daily limit</span><strong>{formatNativeUsdc(m.dailyLimit)} USDC</strong></div><div><span>Total spent</span><strong>{formatNativeUsdc(m.totalSpent)} USDC</strong></div></div>
+        <div className="mandate-stats"><div><span>Available balance</span><strong>{formatNativeUsdc(m.balance)} USDC</strong></div><div><span>Max per payment</span><strong>{formatNativeUsdc(m.maxPerTx)} USDC</strong></div><div><span>Daily limit</span><strong>{formatNativeUsdc(m.dailyLimit)} USDC</strong></div><div><span>Total spent</span><strong>{formatNativeUsdc(m.totalSpent)} USDC</strong></div></div><div className="spend-progress"><div className="spend-progress-label"><span>Mandate funding used</span><strong>{m.totalSpent + m.balance > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / (m.totalSpent + m.balance)) / 100).toFixed(1) : "0.0"}%</strong></div><div className="spend-progress-track" role="progressbar" aria-label={"Mandate " + m.id.toString() + " funding used"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={m.totalSpent + m.balance > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / (m.totalSpent + m.balance)) / 100) : 0}><span style={{width: (m.totalSpent + m.balance > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / (m.totalSpent + m.balance)) / 100) : 0) + "%"}} /></div><small>Based on total recorded spend and current mandate balance; this is not a daily-limit meter.</small></div>
         <div className="mandate-addresses"><div><span>Agent</span><a href={explorerAddress(m.agent)} target="_blank" rel="noreferrer">{short(m.agent)} <ExternalLink size={12}/></a></div><div><span>Allowed recipients ({m.recipients.length})</span><div className="recipient-chips">{m.recipients.map(r=><a key={r} href={explorerAddress(r)} target="_blank" rel="noreferrer">{short(r)}</a>)}</div></div><div><span>Expiry</span><strong>{new Date(Number(m.expiresAt)*1000).toLocaleString()}</strong></div></div>
         <div className="mandate-actions"><a className="subtle-button" href={explorerAddress(getContractAddress())} target="_blank" rel="noreferrer">View contract <ArrowUpRight size={14}/></a>{m.active && <><button className="outline-button" disabled={submitting} onClick={() => void fund(m)}><Plus size={14}/> Fund</button><button className="danger-button" disabled={submitting} onClick={() => void revoke(m)}><X size={14}/> Revoke & refund</button></>}</div>
       </article>)}</div>}
@@ -217,14 +217,103 @@ export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const refresh = useCallback(async()=>{if(!PROBON_CONTRACT_ADDRESS){setPayments([]);return;}setLoading(true);try{setPayments(await loadPayments());if(account)setMandates(await loadMandates(account));}catch{setError("On-chain activity could not be loaded right now. Please try again shortly.");}finally{setLoading(false);}},[account]);
+  function exportPayments() {
+    if (!payments.length) { setError("There are no loaded payment events to export."); return; }
+    const headers = ["mandate_id","agent","recipient","amount_usdc","block_number","transaction_hash","arc_explorer_url"];
+    const rows = payments.map(p => [p.mandateId.toString(), p.agent, p.recipient, formatNativeUsdc(p.amount, 18), p.blockNumber.toString(), p.transactionHash, explorerTx(p.transactionHash)]);
+    const csv = [headers, ...rows].map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a"); link.href = url; link.download = "probon-arc-mainnet-transactions.csv"; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  }
   useEffect(()=>{void refresh();},[refresh]);
   async function pay(event:FormEvent){event.preventDefault();if(!account)return;setBusy(true);setError("");try{const hash=await executePaymentOnChain(account,BigInt(mandateId),recipient,amount);onNotice("Payment submitted. Waiting for confirmation…");await publicClient.waitForTransactionReceipt({hash});onNotice("Payment executed on Arc Mainnet: "+hash);await refresh();}catch{setError("The payment could not be completed. Check the wallet confirmation and try again.");}finally{setBusy(false);}}
   return <WorkspaceFrame title="Transactions" subtitle="On-chain payments emitted by the Probon contract.">{!account?<WalletRequired/>:!PROBON_CONTRACT_ADDRESS?<ContractMissing/>:<>
     {error&&<div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
     <form className="mandate-form payment-form" onSubmit={pay}><div className="form-heading"><div><h3>Execute a policy-checked payment</h3><p>The connected wallet must be the agent assigned to the selected mandate.</p></div></div><div className="form-grid"><label>Mandate<select required value={mandateId} onChange={e=>setMandateId(e.target.value)}><option value="">Select mandate</option>{mandates.filter(m=>m.active).map(m=><option key={m.id.toString()} value={m.id.toString()}>#{m.id.toString()} · balance {formatNativeUsdc(m.balance)} USDC</option>)}</select></label><label>Recipient address<input required value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="0x…"/></label><label>Amount (USDC)<input required type="number" min="0.000000000000000001" step="any" value={amount} onChange={e=>setAmount(e.target.value)}/></label></div><div className="form-note"><ShieldCheck size={16}/><span>The contract checks the connected agent, recipient allowlist, expiry, per-payment cap, daily cap, and available mandate balance. A rejected payment reverts on-chain.</span></div><button className="primary-button" disabled={busy||mandates.filter(m=>m.active).length===0}>{busy?<LoaderCircle className="spin" size={16}/>:<ArrowUpRight size={16}/>} Submit payment</button></form>
-    <div className="workspace-toolbar"><span>Recent on-chain payments</span><button className="subtle-button" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={14} className={loading?"spin":""}/> Refresh</button></div>
+    <div className="workspace-toolbar"><span>Recent on-chain payments · up to 50 latest events</span><div className="toolbar-actions"><button className="subtle-button" onClick={exportPayments} disabled={payments.length===0}><Download size={14}/> Export CSV</button><button className="subtle-button" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={14} className={loading?"spin":""}/> Refresh</button></div></div>
     {loading?<div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Loading on-chain events…</span></div>:payments.length===0?<div className="workspace-empty"><Wallet size={25}/><strong>No confirmed payments</strong><span>Real payment events will appear here after a transaction succeeds.</span></div>:<div className="payment-list">{payments.map(p=><article className="payment-row" key={p.transactionHash}><div className="mandate-icon"><ArrowUpRight size={17}/></div><div className="payment-main"><strong>{formatNativeUsdc(p.amount)} USDC · Mandate #{p.mandateId.toString()}</strong><span>To {short(p.recipient)} · Block {p.blockNumber.toString()}</span></div><a href={explorerTx(p.transactionHash)} target="_blank" rel="noreferrer">View tx <ExternalLink size={13}/></a></article>)}</div>}
   </>}</WorkspaceFrame>;
+}
+
+
+export function PortfolioWorkspace({ account }: { account: Address | null }) {
+  const [balance, setBalance] = useState<bigint | null>(null);
+  const [mandates, setMandates] = useState<ProbonMandate[]>([]);
+  const [payments, setPayments] = useState<ProbonPayment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const refresh = useCallback(async () => {
+    if (!account) { setBalance(null); setMandates([]); setPayments([]); return; }
+    setLoading(true); setError("");
+    try {
+      const [nextBalance, nextMandates, nextPayments] = await Promise.all([
+        getNativeUsdcBalance(account),
+        PROBON_CONTRACT_ADDRESS ? loadMandates(account) : Promise.resolve([]),
+        PROBON_CONTRACT_ADDRESS ? loadPayments() : Promise.resolve([]),
+      ]);
+      setBalance(nextBalance); setMandates(nextMandates); setPayments(nextPayments);
+    } catch {
+      setError("Portfolio data could not be refreshed from Arc Mainnet. Check your wallet network and try again.");
+    } finally { setLoading(false); }
+  }, [account]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  if (!account) return <WorkspaceFrame title="Portfolio" subtitle="Track native USDC and the funds assigned to your Probon mandates on Arc Mainnet."><WalletRequired /></WorkspaceFrame>;
+
+  const mandateFunds = mandates.reduce((sum, m) => sum + m.balance, 0n);
+  const totalRecordedSpend = mandates.reduce((sum, m) => sum + m.totalSpent, 0n);
+  const activeMandates = mandates.filter(m => m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt);
+  const totalKnown = (balance ?? 0n) + mandateFunds;
+  const allocationPct = totalKnown > 0n ? Math.min(100, Number((mandateFunds * 10000n) / totalKnown) / 100) : 0;
+
+  return <WorkspaceFrame title="Portfolio" subtitle="A clear view of your Arc-native USDC, mandate allocations, and recorded agent spending." action={<button className="outline-button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""}/> Refresh portfolio</button>}>
+    {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
+    <div className="portfolio-note"><WalletCards size={17}/><span>Arc Mainnet only · Values below cover native USDC and Probon mandate balances, not every ERC-20 token in your wallet.</span></div>
+    <div className="portfolio-stats">
+      <article className="stat-card"><div className="stat-top"><span>Wallet balance</span><span className="stat-icon purple"><Wallet size={17}/></span></div><div className="stat-value">{balance === null ? "—" : formatNativeUsdc(balance)} <span className="stat-unit">USDC</span></div><div className="stat-foot">Native USDC on Arc Mainnet</div></article>
+      <article className="stat-card"><div className="stat-top"><span>In active mandates</span><span className="stat-icon cyan"><Fingerprint size={17}/></span></div><div className="stat-value">{formatNativeUsdc(activeMandates.reduce((sum,m)=>sum+m.balance,0n))} <span className="stat-unit">USDC</span></div><div className="stat-foot">{activeMandates.length} active mandate(s)</div></article>
+      <article className="stat-card"><div className="stat-top"><span>Recorded spend</span><span className="stat-icon green"><TrendingUp size={17}/></span></div><div className="stat-value">{formatNativeUsdc(totalRecordedSpend)} <span className="stat-unit">USDC</span></div><div className="stat-foot">Lifetime spend reported by your mandates</div></article>
+      <article className="stat-card"><div className="stat-top"><span>Loaded payments</span><span className="stat-icon orange"><ArrowUpRight size={17}/></span></div><div className="stat-value">{payments.length}</div><div className="stat-foot">Latest indexed Probon events</div></article>
+    </div>
+    <article className="mandate-card portfolio-allocation"><div className="form-heading"><div><h3>Funds overview</h3><p>Wallet funds versus USDC currently held by active mandates.</p></div></div><div className="portfolio-allocation-row"><div><span>Wallet available</span><strong>{balance === null ? "—" : formatNativeUsdc(balance)} USDC</strong></div><div><span>Active mandate balances</span><strong>{formatNativeUsdc(activeMandates.reduce((sum,m)=>sum+m.balance,0n))} USDC</strong></div><div><span>Mandate allocation</span><strong>{allocationPct.toFixed(1)}%</strong></div></div><div className="spend-progress-track" role="progressbar" aria-label="Share of known wallet and mandate funds allocated" aria-valuemin={0} aria-valuemax={100} aria-valuenow={allocationPct}><span style={{width: allocationPct + "%"}}/></div><small className="portfolio-caption">Allocation uses wallet native USDC plus active mandate balances. It excludes other tokens and funds held outside Probon.</small></article>
+    <div className="workspace-toolbar"><span>Mandate allocation breakdown</span><span>{mandates.length} mandate(s)</span></div>
+    {loading ? <div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Reading Arc Mainnet portfolio…</span></div> : mandates.length === 0 ? <div className="workspace-empty"><WalletCards size={25}/><strong>No mandate allocations yet</strong><span>Create a mandate to see its current Arc-native USDC balance and spending progress here.</span></div> : <div className="mandate-list">{mandates.map(m => { const denom = m.totalSpent + m.balance; const pct = denom > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / denom) / 100) : 0; return <article className="mandate-card" key={m.id}><div className="mandate-card-top"><div className="mandate-icon"><Fingerprint size={18}/></div><div className="mandate-title"><strong>Mandate #{m.id.toString()}</strong><span>{m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "Active" : m.active ? "Expired" : "Revoked"}</span></div><span className={"mandate-badge " + (m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "badge-active" : "badge-off")}>{m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "ACTIVE" : "INACTIVE"}</span></div><div className="mandate-stats"><div><span>Current balance</span><strong>{formatNativeUsdc(m.balance)} USDC</strong></div><div><span>Total spent</span><strong>{formatNativeUsdc(m.totalSpent)} USDC</strong></div><div><span>Daily limit</span><strong>{formatNativeUsdc(m.dailyLimit)} USDC</strong></div><div><span>Max per payment</span><strong>{formatNativeUsdc(m.maxPerTx)} USDC</strong></div></div><div className="spend-progress"><div className="spend-progress-label"><span>Funding used</span><strong>{pct.toFixed(1)}%</strong></div><div className="spend-progress-track" role="progressbar" aria-label={"Mandate " + m.id.toString() + " funding used"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}><span style={{width:pct+"%"}}/></div><small>Recorded spend relative to spend plus current balance; not a daily-limit indicator.</small></div></article>; })}</div>}
+  </WorkspaceFrame>;
+}
+
+export function MarketResearchWorkspace() {
+  const [asset, setAsset] = useState("");
+  const [snapshot, setSnapshot] = useState("");
+  const [analysis, setAnalysis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function research(event: FormEvent) {
+    event.preventDefault();
+    if (!asset.trim() || !snapshot.trim()) { setError("Enter an Arc token or trading pair and a recent market snapshot."); return; }
+    setLoading(true); setError(""); setAnalysis("");
+    try {
+      const response = await fetch("/api/market-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asset: asset.trim(), snapshot: snapshot.trim() }),
+      });
+      const payload = await response.json() as { analysis?: string; error?: string };
+      if (!response.ok) throw new Error(payload.error || "AI market research is temporarily unavailable.");
+      setAnalysis(payload.analysis || "No analysis was returned.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not generate market research.");
+    } finally { setLoading(false); }
+  }
+
+  return <WorkspaceFrame title="AI Market Research" subtitle="Analyze Arc Mainnet tokens and trading pairs using a market snapshot, with AI-generated context and risk considerations.">
+    <div className="research-source-card"><div className="mandate-icon"><BrainCircuit size={19}/></div><div><strong>Arc-native market research</strong><p>Use an Arc market screener to collect current price, 24-hour change, volume, liquidity, and any notable activity, then paste those observations below. Probon analyzes the data you provide; it does not pretend to have a live market feed.</p><a href="https://arcdexscan.com/" target="_blank" rel="noreferrer">Open Arc DEX Scan <ExternalLink size={13}/></a><a href="https://arcscreener.io/" target="_blank" rel="noreferrer">Open Arc DEX Screener <ExternalLink size={13}/></a></div></div>
+    <form className="mandate-form research-form" onSubmit={research}><div className="form-heading"><div><h3>Analyze an Arc market</h3><p>Only Arc Mainnet assets and pairs are in scope. Do not include private keys or seed phrases.</p></div></div><label>Token / pair / contract address<input required value={asset} onChange={e=>setAsset(e.target.value)} placeholder="Token symbol, pair, or 0x…"/></label><label>Market snapshot<textarea required rows={6} value={snapshot} onChange={e=>setSnapshot(e.target.value)} placeholder={"Example:\nPrice: $0.012\n24h change: +8%\n24h volume: $45,000\nLiquidity: $18,000\nRecent observations: buy volume increased, price is volatile…"} maxLength={8000}/><span className="field-hint">Paste the latest available figures and source timestamp. Maximum 8,000 characters.</span></label><div className="form-note"><ShieldCheck size={16}/><span>Research is informational, based on the snapshot you provide, and is not a guarantee of performance or a trade instruction.</span></div><button className="primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <BrainCircuit size={16}/>} {loading ? "Analyzing snapshot…" : "Generate AI research"}</button></form>
+    {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
+    {analysis && <article className="mandate-card research-result"><div className="mandate-card-top"><div className="mandate-icon"><BrainCircuit size={19}/></div><div className="mandate-title"><strong>Research summary · {asset}</strong><span>Generated from user-supplied market data</span></div></div><div className="research-analysis">{analysis}</div><small className="portfolio-caption">Verify all figures against current Arc market sources before acting. This analysis does not execute trades.</small></article>}
+  </WorkspaceFrame>;
 }
 
 export function SecurityWorkspace({ account, onNotice }: SharedProps) {
