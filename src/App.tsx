@@ -4,6 +4,7 @@ import type { ProbonPayment } from "./lib/probonClient";
 import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
 import { AgentsWorkspace, MandatesWorkspace, PortfolioWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
+import { PortfolioDashboard } from "./components/PortfolioDashboard";
 import {
   Activity, ArrowUpRight, Bot, ChevronDown,
   ExternalLink, Fingerprint, Gauge,
@@ -247,7 +248,7 @@ function App() {
               <footer className="page-footer"><span>© 2026 Probon</span><span><span className="footer-dot" /> Built for safer agent payments</span><span>Arc Mainnet · {ARC_CHAIN_ID}</span><div className="social-links" aria-label="Social links"><a href="https://x.com" target="_blank" rel="noreferrer" aria-label="X (Twitter)" title="X (Twitter)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.9 2H22l-6.78 7.75L23.2 22h-6.25l-4.9-7.62L5.4 22H2.25l7.25-8.29L1.7 2h6.4l4.43 6.96L18.9 2Zm-1.1 18h1.73L7.17 3.89H5.31L17.8 20Z" fill="currentColor"/></svg></a><a href="https://t.me" target="_blank" rel="noreferrer" aria-label="Telegram" title="Telegram"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.7 3.35a1.4 1.4 0 0 0-1.47-.2L2.45 10.1c-1.2.47-1.17 1.2-.21 1.5l4.57 1.43 1.76 5.48c.21.6.11.84.75.84.5 0 .72-.23 1-.5l2.22-2.15 4.62 3.41c.85.47 1.46.23 1.67-.79l3.03-14.25c.3-1.34-.51-1.95-1.16-1.72ZM8.2 12.7l9.92-6.26c.49-.3.94-.14.57.19l-8.2 7.4-.32 3.42L8.2 12.7Z" fill="currentColor"/></svg></a></div></footer>
             </>
           ) : active === "Portfolio" ? (
-            <PortfolioWorkspace account={walletAddress} />
+            <PortfolioDashboard account={walletAddress} />
           ) : active === "Mandates" ? (
             <MandatesWorkspace account={walletAddress} onNotice={setNotice} />
           ) : active === "Agents" ? (
