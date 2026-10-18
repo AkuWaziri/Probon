@@ -123,16 +123,17 @@ function walletClientFor(address: Address) {
   });
 }
 
-async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipientConfiguredEvent | typeof paymentExecutedEvent) {
+async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipientConfiguredEvent | typeof paymentExecutedEvent, args?: any) {
   const contractAddress = requireContract();
   const latestBlock = await publicClient.getBlockNumber();
-  const chunkSize = 2_000n;
+  const chunkSize = 10_000n;
   const logs = [];
   for (let fromBlock = PROBON_DEPLOYMENT_BLOCK; fromBlock <= latestBlock; fromBlock += chunkSize) {
     const toBlock = fromBlock + chunkSize - 1n < latestBlock ? fromBlock + chunkSize - 1n : latestBlock;
     logs.push(...await publicClient.getLogs({
       address: contractAddress,
       event: event as typeof mandateCreatedEvent,
+      ...(args ? { args } : {}),
       fromBlock,
       toBlock,
     }));
@@ -142,14 +143,14 @@ async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipi
 
 export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const contractAddress = requireContract();
-  const created = await getLogsInChunks(mandateCreatedEvent);
+  const created = await getLogsInChunks(mandateCreatedEvent, { owner });
   const ids = [...new Set(created.flatMap((log) => {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
     return decoded.eventName === "MandateCreated" && decoded.args.owner.toLowerCase() === owner.toLowerCase()
       ? [decoded.args.mandateId] : [];
   }))];
 
-  const recipientLogs = await getLogsInChunks(recipientConfiguredEvent);
+  const recipientLogs = (await Promise.all(ids.map((id) => getLogsInChunks(recipientConfiguredEvent, { mandateId: id })))).flat();
   const recipientsByMandate = new Map<bigint, Address[]>();
   for (const log of recipientLogs) {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
