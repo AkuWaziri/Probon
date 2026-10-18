@@ -487,3 +487,28 @@ button:disabled { opacity: .58; cursor: not-allowed; }
   .research-source-card { padding: 11px; }
 }
 @media(max-width:420px) { .portfolio-stats { gap: 8px; } }
+
+
+/* Live Arc market results */
+.market-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 10px; color: #30263f; font-size: 11px; }
+.market-results-heading span { color: #81768f; font-size: 10px; }
+.arc-market-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-bottom: 22px; }
+.arc-market-card { min-width: 0; padding: 14px; border: 1px solid #e5deee; border-radius: 11px; background: #fff; }
+.arc-market-card.selected { border-color: #8b5cf6; box-shadow: 0 0 0 2px #8b5cf61c; }
+.arc-market-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.arc-market-top > div { min-width: 0; }
+.arc-market-top > div strong { display: block; color: #292033; font-size: 12px; overflow-wrap: anywhere; }
+.arc-market-top > div span { display: block; margin-top: 5px; color: #81768f; font-size: 9px; overflow-wrap: anywhere; }
+.arc-market-top > strong { max-width: 48%; color: #292033; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+.arc-market-metrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.arc-market-metrics > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.arc-market-metrics span { color: #81768f; font-size: 9px; }
+.arc-market-metrics strong { color: #30263f; font-size: 11px; overflow-wrap: anywhere; }
+.arc-market-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 11px; border-top: 1px solid #f0ebf5; }
+.arc-market-actions a { display: inline-flex; align-items: center; gap: 5px; color: #6d35d4; font-size: 10px; text-decoration: none; }
+.arc-market-actions .subtle-button { padding: 7px 9px; font-size: 10px; }
+@media(max-width:760px) { .arc-market-list { grid-template-columns: 1fr; } }
+@media(max-width:420px) {
+  .market-results-heading { align-items: flex-start; flex-direction: column; }
+  .arc-market-card { padding: 11px; }
+}
