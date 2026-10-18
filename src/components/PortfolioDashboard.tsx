@@ -77,7 +77,7 @@ export function PortfolioDashboard({ account }: { account: Address | null }) {
     const borrowRequest = fetch("https://api.morpho.org/graphql", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ query: `query GetArcMorphoPositions { userByAddress(address: "${account}", chainId: 5042) { marketPositions { market { marketId loanAsset { symbol decimals } collateralAsset { symbol decimals } } state { borrowAssets borrowAssetsUsd collateral collateralUsd } } } }` }),
+      body: JSON.stringify({ query: `query GetArcMorphoPositions { userByAddress(address: "${account}", chainId: 5042) { marketPositions { market { marketId loanAsset { address symbol decimals } collateralAsset { address symbol decimals } } state { borrowAssets borrowAssetsUsd collateral collateralUsd } } } }` }),
     }).then(async response => {
       if (!response.ok) throw new Error("Morpho market positions are temporarily unavailable.");
       const payload = await response.json() as { errors?: unknown[]; data?: { userByAddress?: { marketPositions?: unknown[] } | null } };
