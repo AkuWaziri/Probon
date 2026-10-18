@@ -27,25 +27,59 @@ const formatUnitsSafe = (raw: string, decimals: number) => { try { return (Numbe
 
 function parseTokens(payload: unknown): Token[] {
   const root = payload as Record<string, unknown>;
-  const rows = Array.isArray(payload) ? payload : Array.isArray(root?.tokens) ? root.tokens : Array.isArray(root?.items) ? root.items : Array.isArray(root?.result) ? root.result : [];
+  const result = root?.result;
+  const data = root?.data;
+  const rows = Array.isArray(payload) ? payload
+    : Array.isArray(root?.tokens) ? root.tokens
+    : Array.isArray(root?.items) ? root.items
+    : Array.isArray(root?.balances) ? root.balances
+    : Array.isArray(result) ? result
+    : Array.isArray(data) ? data
+    : data && typeof data === "object" && Array.isArray((data as Record<string, unknown>).items) ? (data as Record<string, unknown>).items as unknown[]
+    : [];
   return rows.map((value) => {
     const row = value as Record<string, unknown>;
     const money = (row.balance && typeof row.balance === "object" ? row.balance : {}) as Record<string, unknown>;
-    const address = String(row.address ?? row.token_address ?? row.contract_address ?? row.contractAddress ?? "");
-    const decimalsRaw = row.decimals ?? money.decimals;
+    const address = String(row.address ?? row.token_address ?? row.tokenAddress ?? row.contract_address ?? row.contractAddress ?? "");
+    const decimalsRaw = row.decimals ?? row.tokenDecimal ?? row.token_decimal ?? money.decimals;
     const decimals = decimalsRaw !== undefined && Number.isFinite(Number(decimalsRaw)) ? Number(decimalsRaw) : null;
-    const raw = String(row.raw_balance ?? row.balance_raw ?? money.raw ?? row.value ?? "");
-    const formattedRaw = row.formatted_balance ?? row.balance_formatted ?? money.formatted;
-    const usdRaw = row.usd_value ?? row.value_usd ?? money.usd;
+    const raw = String(row.raw_balance ?? row.balance_raw ?? row.tokenQuantity ?? row.token_quantity ?? money.raw ?? row.value ?? "");
+    const formattedRaw = row.formatted_balance ?? row.balance_formatted ?? row.tokenBalance ?? row.token_balance ?? money.formatted;
+    const usdRaw = row.usd_value ?? row.value_usd ?? row.tokenPriceUSD ?? row.token_price_usd ?? money.usd;
     const usd = usdRaw === undefined || usdRaw === null || usdRaw === "" ? null : Number(usdRaw);
     return {
-      address, name: String(row.name ?? row.token_name ?? row.symbol ?? "Unknown token"),
-      symbol: String(row.symbol ?? row.token_symbol ?? money.symbol ?? "TOKEN"), decimals, raw,
+      address, name: String(row.name ?? row.tokenName ?? row.token_name ?? row.symbol ?? "Unknown token"),
+      symbol: String(row.symbol ?? row.tokenSymbol ?? row.token_symbol ?? money.symbol ?? "TOKEN"), decimals, raw,
       formatted: typeof formattedRaw === "string" || typeof formattedRaw === "number" ? String(formattedRaw) : "",
       usd: Number.isFinite(usd) ? usd : null,
       logo: typeof (row.logo ?? row.logo_url ?? row.image) === "string" ? String(row.logo ?? row.logo_url ?? row.image) : null,
     };
   }).filter((token) => /^0x[a-fA-F0-9]{40}$/.test(token.address));
+}
+
+async function fetchArcTokenBalances(account: Address): Promise<Token[]> {
+  const primaryUrl = "https://api.arc-scan.org/v1/address/" + account + "/tokens";
+  try {
+    const response = await fetch(primaryUrl, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("Typed Arcscan endpoint unavailable.");
+    const payload = await response.json();
+    const parsed = parseTokens(payload);
+    if (parsed.length > 0 || (Array.isArray(payload) && payload.length === 0)) return parsed;
+    const root = payload as Record<string, unknown>;
+    if (Array.isArray(root?.tokens) || Array.isArray(root?.items) || Array.isArray(root?.balances) || Array.isArray(root?.result) || Array.isArray(root?.data)) return parsed;
+    throw new Error("Unexpected Arcscan token response shape.");
+  } catch {
+    const fallbackUrl = "https://api.arc-scan.org/api?module=account&action=addresstokenbalance&address=" + account;
+    const response = await fetch(fallbackUrl, { headers: { Accept: "application/json" } });
+    if (!response.ok) throw new Error("Arcscan token balance endpoints are unavailable.");
+    const payload = await response.json() as Record<string, unknown>;
+    if (String(payload.status ?? "") === "0") {
+      const message = String(payload.result ?? payload.message ?? "");
+      if (/no transactions found|no token/i.test(message)) return [];
+      throw new Error("Arcscan token balance request was rejected.");
+    }
+    return parseTokens(payload);
+  }
 }
 
 export function PortfolioDashboard({ account }: { account: Address | null }) {
@@ -96,8 +130,7 @@ export function PortfolioDashboard({ account }: { account: Address | null }) {
       }
       return positions;
     })();
-    const tokenRequest = fetch("https://api.arc-scan.org/v1/address/" + account + "/tokens", { headers: { Accept: "application/json" } })
-      .then(async response => { if (!response.ok) throw new Error("Arc token index is temporarily unavailable."); return parseTokens(await response.json()); });
+    const tokenRequest = fetchArcTokenBalances(account);
     const morphoRequest = Promise.all((["v1", "v2"] as const).map(async version => {
       const url = `https://api.morpho.org/${version === "v1" ? "v1/vaults-v1" : "v1/vaults-v2"}/users/${account}/positions?chain_ids=5042&active_only=true&limit=100`;
       const response = await fetch(url, { headers: { Accept: "application/json" } });
