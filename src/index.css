@@ -30,7 +30,7 @@ button:focus-visible { outline: 2px solid var(--purple); outline-offset: 3px; }
 .workspace-copy strong, .profile-copy strong { font-size: 12px; font-weight: 600; color: #f2efff; }
 .workspace-copy span, .profile-copy span { font-size: 10px; color: #a39cb2; }
 .muted-icon { color: #9189a3; flex-shrink: 0; }
-.nav-label { padding: 0 12px; margin-bottom: 10px; color: #9189a3; font-size: 9px; letter-spacing: 1.3px; font-weight: 700; }
+.nav-label { padding: 0 12px; margin-top: 12px; margin-bottom: 10px; color: #9189a3; font-size: 9px; letter-spacing: 1.3px; font-weight: 700; }
 .primary-nav { display: flex; flex-direction: column; gap: 4px; }
 .nav-item { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 0; border-radius: 9px; background: transparent; color: #b4aec4; text-align: left; font-size: 12px; transition: background .15s, color .15s; }
 .nav-item:hover { background: #1c1927; color: #ffffff; }
