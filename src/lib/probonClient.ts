@@ -107,26 +107,33 @@ function walletClientFor(address: Address) {
   });
 }
 
+async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipientConfiguredEvent | typeof paymentExecutedEvent) {
+  const contractAddress = requireContract();
+  const latestBlock = await publicClient.getBlockNumber();
+  const chunkSize = 2_000n;
+  const logs = [];
+  for (let fromBlock = PROBON_DEPLOYMENT_BLOCK; fromBlock <= latestBlock; fromBlock += chunkSize) {
+    const toBlock = fromBlock + chunkSize - 1n < latestBlock ? fromBlock + chunkSize - 1n : latestBlock;
+    logs.push(...await publicClient.getLogs({
+      address: contractAddress,
+      event: event as typeof mandateCreatedEvent,
+      fromBlock,
+      toBlock,
+    }));
+  }
+  return logs;
+}
+
 export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const contractAddress = requireContract();
-  const created = await publicClient.getLogs({
-    address: contractAddress,
-    event: mandateCreatedEvent,
-    fromBlock: PROBON_DEPLOYMENT_BLOCK,
-    toBlock: "latest",
-  });
+  const created = await getLogsInChunks(mandateCreatedEvent);
   const ids = [...new Set(created.flatMap((log) => {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
     return decoded.eventName === "MandateCreated" && decoded.args.owner.toLowerCase() === owner.toLowerCase()
       ? [decoded.args.mandateId] : [];
   }))];
 
-  const recipientLogs = await publicClient.getLogs({
-    address: contractAddress,
-    event: recipientConfiguredEvent,
-    fromBlock: PROBON_DEPLOYMENT_BLOCK,
-    toBlock: "latest",
-  });
+  const recipientLogs = await getLogsInChunks(recipientConfiguredEvent);
   const recipientsByMandate = new Map<bigint, Address[]>();
   for (const log of recipientLogs) {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
@@ -150,12 +157,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
 
 export async function loadPayments(): Promise<ProbonPayment[]> {
   const contractAddress = requireContract();
-  const logs = await publicClient.getLogs({
-    address: contractAddress,
-    event: paymentExecutedEvent,
-    fromBlock: PROBON_DEPLOYMENT_BLOCK,
-    toBlock: "latest",
-  });
+  const logs = await getLogsInChunks(paymentExecutedEvent);
   return logs.slice(-50).reverse().map((log) => {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
     if (decoded.eventName !== "PaymentExecuted") throw new Error("Unexpected Probon event.");
