@@ -3,7 +3,7 @@ import type { Address } from "viem";
 import type { ProbonPayment } from "./lib/probonClient";
 import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
-import { AgentsWorkspace, MandatesWorkspace, PortfolioWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
+import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import { PortfolioDashboard } from "./components/PortfolioDashboard";
 import {
   Activity, ArrowUpRight, Bot, ChevronDown,
