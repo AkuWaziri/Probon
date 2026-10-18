@@ -60,7 +60,7 @@ function App() {
       } catch {
         // Keep provider/RPC details out of the customer-facing interface.
         setNativeBalance(null);
-        setNotice("Your wallet is connected, but balance data is temporarily unavailable. Check your network connection and try again shortly.");
+        setNotice("Wallet connected. Your balance is temporarily unavailable.");
       }
     } catch {
       // Never render raw wallet, RPC, provider, or viem exceptions in the UI.
