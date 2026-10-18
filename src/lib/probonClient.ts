@@ -44,12 +44,21 @@ export type ProbonPayment = {
 // Use Arc's primary endpoint first and a browser-CORS-enabled public fallback.
  // This keeps read-only app requests resilient if the primary RPC is unreachable
  // from the visitor's browser or network.
-export const publicClient = createPublicClient({
-  chain: arcMainnet,
-  transport: fallback([
+function readTransport() {
+  // In-browser, prefer the connected wallet's RPC connection. Some browsers or
+  // networks block direct cross-origin requests to public Arc RPC endpoints.
+  if (typeof window !== "undefined" && window.ethereum) {
+    return custom(window.ethereum as never);
+  }
+  return fallback([
     http(ARC_RPC_URL, { timeout: 8_000, retryCount: 1 }),
     http("https://rpc.arc-scan.org", { timeout: 12_000, retryCount: 1 }),
-  ]),
+  ]);
+}
+
+export const publicClient = createPublicClient({
+  chain: arcMainnet,
+  transport: readTransport(),
 });
 
 function requireContract(): Address {
