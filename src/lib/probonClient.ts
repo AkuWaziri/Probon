@@ -1,5 +1,5 @@
 import {
-  createPublicClient, createWalletClient, custom, decodeEventLog, formatUnits,
+  createPublicClient, createWalletClient, custom, decodeEventLog, fallback, formatUnits,
   getAddress, http, isAddress, parseAbiItem, parseUnits, type Address,
 } from "viem";
 import { arcMainnet, ARC_CHAIN_ID, ARC_RPC_URL, ARC_EXPLORER_URL, NATIVE_USDC_DECIMALS, PROBON_CONTRACT_ADDRESS, PROBON_DEPLOYMENT_BLOCK } from "./arc";
@@ -41,9 +41,15 @@ export type ProbonPayment = {
   blockNumber: bigint;
 };
 
+// Use Arc's primary endpoint first and a browser-CORS-enabled public fallback.
+ // This keeps read-only app requests resilient if the primary RPC is unreachable
+ // from the visitor's browser or network.
 export const publicClient = createPublicClient({
   chain: arcMainnet,
-  transport: http(ARC_RPC_URL, { timeout: 20_000, retryCount: 2 }),
+  transport: fallback([
+    http(ARC_RPC_URL, { timeout: 8_000, retryCount: 1 }),
+    http("https://rpc.arc-scan.org", { timeout: 12_000, retryCount: 1 }),
+  ]),
 });
 
 function requireContract(): Address {
