@@ -13,6 +13,25 @@ const short = (value: string) => value.length > 14 ? value.slice(0, 7) + "…" +
 const explorerTx = (hash: string) => ARC_EXPLORER_URL + "/tx/" + hash;
 const explorerAddress = (address: string) => ARC_EXPLORER_URL + "/address/" + address;
 
+function mandateCreationError(error: unknown): string {
+  const e = error as { name?: string; shortMessage?: string; message?: string; cause?: { name?: string; message?: string } };
+  const name = [e?.name, e?.cause?.name].filter(Boolean).join(" ").toLowerCase();
+  const message = [e?.shortMessage, e?.message, e?.cause?.message].filter(Boolean).join(" ").toLowerCase();
+  if (/userrejected|user rejected|rejected the request|denied transaction|request rejected/.test(name + " " + message)) {
+    return "Transaction cancelled in your wallet. No mandate was created.";
+  }
+  if (/chain.?id|wrong network|switch.*network|chain mismatch/.test(message)) {
+    return "Your wallet is not on Arc Mainnet. Switch to Arc Mainnet (chain ID 5042) and try again.";
+  }
+  if (/insufficient funds|exceeds the balance|not enough funds/.test(message)) {
+    return "Your wallet does not have enough native USDC to cover the transaction and network fee.";
+  }
+  if (/revert|execution reverted|contractfunctionexecutionerror/.test(name + " " + message)) {
+    return "The contract rejected these mandate settings. Check that the daily limit is at least the per-payment limit, the addresses are valid and distinct, and the wallet has enough USDC.";
+  }
+  return "Mandate creation could not be submitted. Check Arc Mainnet, wallet balance, and the wallet confirmation, then try again.";
+}
+
 function WalletRequired() {
   return <div className="workspace-empty"><Wallet size={25}/><strong>Connect a wallet to continue</strong><span>Connect an EVM wallet on Arc Mainnet to read and manage on-chain data.</span></div>;
 }
@@ -58,7 +77,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
       onNotice("Mandate created on Arc Mainnet. Transaction: " + hash);
       setShowForm(false); setAgent(""); setRecipients(""); setInitialFunding("0");
       await refresh();
-    } catch { setError("Mandate creation could not be completed. Check your wallet and try again."); }
+    } catch (error) { setError(mandateCreationError(error)); }
     finally { setSubmitting(false); }
   }
 
