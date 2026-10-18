@@ -186,7 +186,7 @@ tbody tr:last-child td { border-bottom: 0; }
 /* Probon high-contrast brand palette: white canvas, black navigation, vivid purple actions. */
 :root {
   --bg: #f7f6fb;
-  --sidebar: #0b0a10;
+  --sidebar: #e9ddff;
   --panel: #ffffff;
   --panel-raised: #f1eef9;
   --border: #e4dfef;
@@ -198,22 +198,22 @@ tbody tr:last-child td { border-bottom: 0; }
   background: #f7f6fb;
 }
 body, .app-shell { background: #f7f6fb; color: #17131f; }
-.sidebar { background: #0b0a10; border-right-color: #24202e; }
-.brand { color: #ffffff; }
-.brand-mark { background: #8b5cf6; color: #ffffff; }
-.workspace-switcher, .help-card { background: #15121d; border-color: #30283f; }
-.workspace-copy strong, .profile-copy strong { color: #ffffff; }
-.workspace-copy span, .profile-copy span, .help-card p { color: #aaa2b8; }
-.nav-label { color: #8e849f; }
-.nav-item { color: #c4bdcf; }
-.nav-item:hover { background: #211a2d; color: #ffffff; }
-.nav-item-active { background: #32204f; color: #ffffff; }
-.nav-item-active svg, .nav-item-active::before { color: #c4a7ff; }
-.nav-item-active::before { background: #a879ff; }
-.help-icon { background: #32204f; color: #d4bdff; }
-.help-card button, .table-foot button, .page-footer button { color: #c4a7ff; }
-.profile-row { border-top-color: #30283f; }
-.profile-avatar { background: #6d35d4; color: #ffffff; }
+.sidebar { background: #e9ddff; border-right-color: #d2c0f5; }
+.brand { color: #281846; }
+.brand-mark { background: #c5a8ff; color: #281846; }
+.workspace-switcher, .help-card { background: #f3ecff; border-color: #d2c0f5; }
+.workspace-copy strong, .profile-copy strong { color: #281846; }
+.workspace-copy span, .profile-copy span, .help-card p { color: #6e5b87; }
+.nav-label { color: #78658f; }
+.nav-item { color: #55416f; }
+.nav-item:hover { background: #dac8ff; color: #281846; }
+.nav-item-active { background: #c7aaff; color: #281846; }
+.nav-item-active svg, .nav-item-active::before { color: #6840a8; }
+.nav-item-active::before { background: #8b5cf6; }
+.help-icon { background: #d8c4ff; color: #6840a8; }
+.help-card button, .table-foot button, .page-footer button { color: #6840a8; }
+.profile-row { border-top-color: #d2c0f5; }
+.profile-avatar { background: #c5a8ff; color: #281846; }
 .topbar { background: #ffffff; border-bottom-color: #e6e1ef; }
 .breadcrumb { color: #777084; }
 .breadcrumb strong { color: #17131f; }
