@@ -128,12 +128,6 @@ function App() {
           <button className="icon-button sidebar-close" aria-label="Close navigation" onClick={() => setMobileNav(false)}><X size={18} /></button>
         </div>
 
-        <div className="workspace-switcher">
-          <div className="workspace-avatar">A</div>
-          <div className="workspace-copy"><strong>My workspace</strong><span>Personal workspace</span></div>
-          <ChevronDown size={15} className="muted-icon" />
-        </div>
-
         <div className="nav-label">WORKSPACE</div>
         <nav className="primary-nav" aria-label="Main navigation">
           {navItems.map(({ label, icon: Icon }) => (
