@@ -38,7 +38,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
     if (!account || !getContractAddress()) { setMandates([]); return; }
     setLoading(true); setError("");
     try { setMandates(await loadMandates(account)); }
-    catch (e) { setError(e instanceof Error ? e.message : "Unable to load mandates from Arc Mainnet."); }
+    catch { setError("Mandates could not be loaded right now. Please try again shortly."); }
     finally { setLoading(false); }
   }, [account]);
 
@@ -58,7 +58,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
       onNotice("Mandate created on Arc Mainnet. Transaction: " + hash);
       setShowForm(false); setAgent(""); setRecipients(""); setInitialFunding("0");
       await refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Mandate creation failed."); }
+    } catch { setError("Mandate creation could not be completed. Check your wallet and try again."); }
     finally { setSubmitting(false); }
   }
 
@@ -71,7 +71,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
       await publicClient.waitForTransactionReceipt({ hash });
       onNotice("Mandate revoked. Refund and state changes are on-chain. " + hash);
       await refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Revocation failed."); }
+    } catch { setError("Mandate revocation could not be completed. Check your wallet and try again."); }
     finally { setSubmitting(false); }
   }
 
@@ -86,7 +86,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
       await publicClient.waitForTransactionReceipt({ hash });
       onNotice("Mandate funded on Arc Mainnet. " + hash);
       await refresh();
-    } catch (e) { setError(e instanceof Error ? e.message : "Funding failed."); }
+    } catch { setError("Mandate funding could not be completed. Check your wallet and try again."); }
     finally { setSubmitting(false); }
   }
 
@@ -135,9 +135,9 @@ export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
   const [amount, setAmount] = useState("0.1");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const refresh = useCallback(async()=>{if(!PROBON_CONTRACT_ADDRESS){setPayments([]);return;}setLoading(true);try{setPayments(await loadPayments());if(account)setMandates(await loadMandates(account));}catch(e){setError(e instanceof Error?e.message:"Unable to load on-chain activity.");}finally{setLoading(false);}},[account]);
+  const refresh = useCallback(async()=>{if(!PROBON_CONTRACT_ADDRESS){setPayments([]);return;}setLoading(true);try{setPayments(await loadPayments());if(account)setMandates(await loadMandates(account));}catch{setError("On-chain activity could not be loaded right now. Please try again shortly.");}finally{setLoading(false);}},[account]);
   useEffect(()=>{void refresh();},[refresh]);
-  async function pay(event:FormEvent){event.preventDefault();if(!account)return;setBusy(true);setError("");try{const hash=await executePaymentOnChain(account,BigInt(mandateId),recipient,amount);onNotice("Payment submitted. Waiting for confirmation…");await publicClient.waitForTransactionReceipt({hash});onNotice("Payment executed on Arc Mainnet: "+hash);await refresh();}catch(e){setError(e instanceof Error?e.message:"Payment failed.");}finally{setBusy(false);}}
+  async function pay(event:FormEvent){event.preventDefault();if(!account)return;setBusy(true);setError("");try{const hash=await executePaymentOnChain(account,BigInt(mandateId),recipient,amount);onNotice("Payment submitted. Waiting for confirmation…");await publicClient.waitForTransactionReceipt({hash});onNotice("Payment executed on Arc Mainnet: "+hash);await refresh();}catch{setError("The payment could not be completed. Check the wallet confirmation and try again.");}finally{setBusy(false);}}
   return <WorkspaceFrame title="Transactions" subtitle="On-chain payments emitted by the Probon contract.">{!account?<WalletRequired/>:!PROBON_CONTRACT_ADDRESS?<ContractMissing/>:<>
     {error&&<div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
     <form className="mandate-form payment-form" onSubmit={pay}><div className="form-heading"><div><h3>Execute a policy-checked payment</h3><p>The connected wallet must be the agent assigned to the selected mandate.</p></div></div><div className="form-grid"><label>Mandate<select required value={mandateId} onChange={e=>setMandateId(e.target.value)}><option value="">Select mandate</option>{mandates.filter(m=>m.active).map(m=><option key={m.id.toString()} value={m.id.toString()}>#{m.id.toString()} · balance {formatNativeUsdc(m.balance)} USDC</option>)}</select></label><label>Recipient address<input required value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="0x…"/></label><label>Amount (USDC)<input required type="number" min="0.000000000000000001" step="any" value={amount} onChange={e=>setAmount(e.target.value)}/></label></div><div className="form-note"><ShieldCheck size={16}/><span>The contract checks the connected agent, recipient allowlist, expiry, per-payment cap, daily cap, and available mandate balance. A rejected payment reverts on-chain.</span></div><button className="primary-button" disabled={busy||mandates.filter(m=>m.active).length===0}>{busy?<LoaderCircle className="spin" size={16}/>:<ArrowUpRight size={16}/>} Submit payment</button></form>
