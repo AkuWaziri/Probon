@@ -66,6 +66,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
   const [expiryDays, setExpiryDays] = useState("30");
   const [initialFunding, setInitialFunding] = useState("0");
   const [showForm, setShowForm] = useState(false);
+  const [pendingHash, setPendingHash] = useState("");
 
   const refresh = useCallback(async () => {
     if (!account || !getContractAddress()) { setMandates([]); return; }
@@ -77,22 +78,65 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
+  async function finishConfirmedMandate(hash: `0x${string}`) {
+    onNotice("Mandate transaction confirmed on Arc Mainnet: " + hash);
+    setPendingHash("");
+    setShowForm(false); setAgent(""); setRecipients(""); setInitialFunding("0");
+    await refresh();
+  }
+
+  async function checkMandateConfirmation(hash: `0x${string}`) {
+    setSubmitting(true);
+    setError("");
+    try {
+      const receipt = await publicClient.getTransactionReceipt({ hash });
+      if (receipt.status !== "success") {
+        setPendingHash("");
+        setError("The mandate transaction failed on-chain. Review the transaction before creating another mandate: " + explorerTx(hash));
+        return;
+      }
+      await finishConfirmedMandate(hash);
+    } catch {
+      setPendingHash(hash);
+      setError("The wallet submitted this transaction, but Arc RPC has not returned its receipt yet. Do not submit another mandate. Check the transaction: " + explorerTx(hash));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!account) return;
+    if (!account || pendingHash) return;
     setSubmitting(true); setError("");
+    let hash: `0x${string}`;
     try {
-      const hash = await createMandateOnChain({
+      hash = await createMandateOnChain({
         account, agent, recipients: recipients.split(/[\n,;]/), maxPerTx, dailyLimit,
         expiryDays: Number(expiryDays), initialFunding,
       });
-      onNotice("Mandate transaction submitted. Waiting for Arc Mainnet confirmation…");
-      await publicClient.waitForTransactionReceipt({ hash });
-      onNotice("Mandate created on Arc Mainnet. Transaction: " + hash);
-      setShowForm(false); setAgent(""); setRecipients(""); setInitialFunding("0");
-      await refresh();
-    } catch (error) { setError(mandateCreationError(error)); }
-    finally { setSubmitting(false); }
+    } catch (error) {
+      setError(mandateCreationError(error));
+      setSubmitting(false);
+      return;
+    }
+
+    // From this point on, the wallet has returned a transaction hash. Never describe
+    // a later receipt/RPC error as a failed submission or invite a duplicate transaction.
+    setPendingHash(hash);
+    onNotice("Mandate submitted. Checking Arc Mainnet confirmation: " + explorerTx(hash));
+    try {
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== "success") {
+        setPendingHash("");
+        setError("The mandate transaction failed on-chain. Review the transaction before trying again: " + explorerTx(hash));
+        return;
+      }
+      await finishConfirmedMandate(hash);
+    } catch {
+      setError("Transaction submitted successfully from your wallet, but confirmation could not be checked through Arc RPC. Do not submit again. Check the transaction: " + explorerTx(hash));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function revoke(mandate: ProbonMandate) {
@@ -138,7 +182,8 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
         <label>Initial funding (USDC)<input required type="number" min="0" step="any" value={initialFunding} onChange={e=>setInitialFunding(e.target.value)}/></label>
       </div>
       <div className="form-note"><ShieldCheck size={16}/><span>Only the selected agent can execute payments. Contract rules block unapproved recipients, expired mandates, payments above the per-payment cap, and daily-limit overruns. Funding is real mainnet USDC.</span></div>
-      <button className="primary-button" type="submit" disabled={submitting || !PROBON_CONTRACT_ADDRESS}>{submitting ? <LoaderCircle className="spin" size={16}/> : <Plus size={16}/>} {submitting ? "Waiting for transaction…" : "Review & create mandate"}</button>
+      <button className="primary-button" type="submit" disabled={submitting || !PROBON_CONTRACT_ADDRESS}>{submitting ? <LoaderCircle className="spin" size={16}/> : <Plus size={16}/>} {pendingHash ? "Transaction submitted — checking status" : submitting ? "Confirming on Arc Mainnet…" : "Review & create mandate"}</button>
+      {pendingHash && <div className="form-note"><CircleAlert size={16}/><span>Do not submit another mandate while this transaction is unresolved. <a href={explorerTx(pendingHash)} target="_blank" rel="noreferrer">View transaction</a> or <button type="button" className="subtle-button" disabled={submitting} onClick={() => void checkMandateConfirmation(pendingHash)}>Check confirmation</button></span></div>}
     </form>}
     <div className="workspace-toolbar"><span>{mandates.length} mandate{mandates.length === 1 ? "" : "s"} found for this wallet</span><button className="subtle-button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""}/> Refresh</button></div>
     {loading ? <div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Reading Arc Mainnet…</span></div> : mandates.length === 0 ? <div className="workspace-empty"><Fingerprint size={26}/><strong>No mandates yet</strong><span>Create your first on-chain spending policy. Nothing is stored until a wallet transaction confirms.</span>{PROBON_CONTRACT_ADDRESS && <button className="primary-button" onClick={() => setShowForm(true)}><Plus size={16}/> Create mandate</button>}</div> :
