@@ -156,7 +156,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
 }
 
 export async function loadPayments(): Promise<ProbonPayment[]> {
-  const contractAddress = requireContract();
+  requireContract();
   const logs = await getLogsInChunks(paymentExecutedEvent);
   return logs.slice(-50).reverse().map((log) => {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
