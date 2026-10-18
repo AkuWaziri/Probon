@@ -10,7 +10,7 @@ type MorphoPosition = { vault: string; name: string; symbol: string; assetSymbol
 type MorphoBorrowPosition = { marketId: string; loanSymbol: string; loanAddress: string; loanDecimals: number; collateralSymbol: string; collateralAddress: string; collateralDecimals: number; borrowAssets: string; borrowUsd: string | null; collateral: string; collateralUsd: string | null };
 const short = (value: string) => value.length > 14 ? value.slice(0, 7) + "…" + value.slice(-5) : value;
 const addressUrl = (address: string) => ARC_EXPLORER_URL + "/address/" + address;
-const SUPPORTED_DEFI_ASSETS = new Set(["0x3600000000000000000000000000000000000000", "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1", "0x171a4217b86a807a64eb94757db6849fb4b dbaa0".replaceAll(" ", "")]);
+const SUPPORTED_DEFI_ASSETS = new Set(["0x3600000000000000000000000000000000000000", "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1", "0x171a4217b86a807a64eb94757db6849fb4bdbaa0"]);
 const assetAllowed = (address: string) => SUPPORTED_DEFI_ASSETS.has(address.toLowerCase());
 const formatUnitsSafe = (raw: string, decimals: number) => { try { return (Number(raw) / Math.pow(10, decimals)).toLocaleString(undefined, { maximumFractionDigits: 8 }); } catch { return raw; } };
 
