@@ -51,11 +51,20 @@ function App() {
     try {
       const address = await connectWallet();
       setWalletAddress(address);
-      const balance = await getNativeUsdcBalance(address);
-      setNativeBalance(balance);
-      setNotice("Wallet connected to Arc Mainnet.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Wallet connection failed.");
+      setNotice("Wallet connected. Loading your Arc Mainnet balance…");
+
+      try {
+        const balance = await getNativeUsdcBalance(address);
+        setNativeBalance(balance);
+        setNotice("Wallet connected to Arc Mainnet.");
+      } catch {
+        // Keep provider/RPC details out of the customer-facing interface.
+        setNativeBalance(null);
+        setNotice("Your wallet is connected, but balance data is temporarily unavailable. Check your network connection and try again shortly.");
+      }
+    } catch {
+      // Never render raw wallet, RPC, provider, or viem exceptions in the UI.
+      setNotice("Could not connect your wallet. Unlock your wallet, select Arc Mainnet, and try again.");
     } finally {
       setWalletBusy(false);
     }
