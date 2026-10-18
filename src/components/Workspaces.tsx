@@ -283,16 +283,60 @@ export function PortfolioWorkspace({ account }: { account: Address | null }) {
   </WorkspaceFrame>;
 }
 
+type ArcMarket = {
+  pairAddress: string;
+  pairLabel: string;
+  baseSymbol: string;
+  quoteSymbol: string;
+  priceUsd: string | null;
+  change24h: number | null;
+  volume24h: number | null;
+  liquidityUsd: number | null;
+  fdv: number | null;
+  buys24h: number | null;
+  sells24h: number | null;
+  dexId: string;
+  url: string;
+  snapshot: string;
+};
+
 export function MarketResearchWorkspace() {
   const [asset, setAsset] = useState("");
   const [snapshot, setSnapshot] = useState("");
+  const [query, setQuery] = useState("");
+  const [markets, setMarkets] = useState<ArcMarket[]>([]);
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fetchingMarkets, setFetchingMarkets] = useState(false);
   const [error, setError] = useState("");
+  const [marketTimestamp, setMarketTimestamp] = useState("");
+
+  async function fetchMarkets(event?: FormEvent) {
+    event?.preventDefault();
+    if (!query.trim()) { setError("Enter an Arc token name, symbol, or contract address."); return; }
+    setFetchingMarkets(true); setError(""); setMarkets([]); setAnalysis("");
+    try {
+      const response = await fetch("/api/arc-markets?q=" + encodeURIComponent(query.trim()));
+      const payload = await response.json() as { markets?: ArcMarket[]; updatedAt?: string; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Live Arc market data is unavailable.");
+      setMarkets(payload.markets || []);
+      setMarketTimestamp(payload.updatedAt || "");
+      if (!payload.markets?.length) setError("No Arc Mainnet markets were found for that search. Try a token symbol or contract address.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not fetch live Arc market data.");
+    } finally { setFetchingMarkets(false); }
+  }
+
+  function selectMarket(market: ArcMarket) {
+    setAsset(market.pairLabel);
+    setSnapshot(market.snapshot);
+    setError("");
+    setAnalysis("");
+  }
 
   async function research(event: FormEvent) {
     event.preventDefault();
-    if (!asset.trim() || !snapshot.trim()) { setError("Enter an Arc token or trading pair and a recent market snapshot."); return; }
+    if (!asset.trim() || !snapshot.trim()) { setError("Fetch and select an Arc market, or enter a token and market snapshot manually."); return; }
     setLoading(true); setError(""); setAnalysis("");
     try {
       const response = await fetch("/api/market-research", {
@@ -308,11 +352,24 @@ export function MarketResearchWorkspace() {
     } finally { setLoading(false); }
   }
 
-  return <WorkspaceFrame title="AI Market Research" subtitle="Analyze Arc Mainnet tokens and trading pairs using a market snapshot, with AI-generated context and risk considerations.">
-    <div className="research-source-card"><div className="mandate-icon"><BrainCircuit size={19}/></div><div><strong>Arc-native market research</strong><p>Use an Arc market screener to collect current price, 24-hour change, volume, liquidity, and any notable activity, then paste those observations below. Probon analyzes the data you provide; it does not pretend to have a live market feed.</p><a href="https://arcdexscan.com/" target="_blank" rel="noreferrer">Open Arc DEX Scan <ExternalLink size={13}/></a><a href="https://arcscreener.io/" target="_blank" rel="noreferrer">Open Arc DEX Screener <ExternalLink size={13}/></a></div></div>
-    <form className="mandate-form research-form" onSubmit={research}><div className="form-heading"><div><h3>Analyze an Arc market</h3><p>Only Arc Mainnet assets and pairs are in scope. Do not include private keys or seed phrases.</p></div></div><label>Token / pair / contract address<input required value={asset} onChange={e=>setAsset(e.target.value)} placeholder="Token symbol, pair, or 0x…"/></label><label>Market snapshot<textarea required rows={6} value={snapshot} onChange={e=>setSnapshot(e.target.value)} placeholder={"Example:\nPrice: $0.012\n24h change: +8%\n24h volume: $45,000\nLiquidity: $18,000\nRecent observations: buy volume increased, price is volatile…"} maxLength={8000}/><span className="field-hint">Paste the latest available figures and source timestamp. Maximum 8,000 characters.</span></label><div className="form-note"><ShieldCheck size={16}/><span>Research is informational, based on the snapshot you provide, and is not a guarantee of performance or a trade instruction.</span></div><button className="primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <BrainCircuit size={16}/>} {loading ? "Analyzing snapshot…" : "Generate AI research"}</button></form>
+  return <WorkspaceFrame title="AI Market Research" subtitle="Find live Arc Mainnet DEX markets, inspect available metrics, and generate AI analysis from the selected market data.">
+    <div className="research-source-card"><div className="mandate-icon"><BrainCircuit size={19}/></div><div><strong>Live Arc Mainnet market data</strong><p>Searches Arc markets through a public market-data API. Metrics are indexed observations, can be delayed or missing, and are not executable swap quotes. Research stays on Arc Mainnet.</p><a href="https://arcdexscan.com/" target="_blank" rel="noreferrer">Open Arc DEX Scan <ExternalLink size={13}/></a><a href="https://arcscreener.io/" target="_blank" rel="noreferrer">Open Arc DEX Screener <ExternalLink size={13}/></a></div></div>
+    <form className="mandate-form research-form" onSubmit={fetchMarkets}>
+      <div className="form-heading"><div><h3>Find an Arc market</h3><p>Search by token symbol, name, or contract address.</p></div></div>
+      <label>Token / contract<input required value={query} onChange={e=>setQuery(e.target.value)} placeholder="e.g. token symbol or 0x…" autoComplete="off"/></label>
+      <button className="primary-button" type="submit" disabled={fetchingMarkets}>{fetchingMarkets ? <LoaderCircle className="spin" size={16}/> : <TrendingUp size={16}/>} {fetchingMarkets ? "Fetching Arc markets…" : "Fetch live Arc markets"}</button>
+    </form>
+    {marketTimestamp && markets.length > 0 && <div className="market-results-heading"><strong>{markets.length} Arc market{markets.length===1?"":"s"} found</strong><span>Fetched {new Date(marketTimestamp).toLocaleString()}</span></div>}
+    {markets.length > 0 && <div className="arc-market-list">{markets.map(market => <article className={"arc-market-card" + (asset===market.pairLabel ? " selected" : "")} key={market.pairAddress}><div className="arc-market-top"><div><strong>{market.pairLabel}</strong><span>{market.dexId} · {market.pairAddress.slice(0,7)+"…"+market.pairAddress.slice(-5)}</span></div><strong>{market.priceUsd ? "$"+Number(market.priceUsd).toLocaleString(undefined,{maximumSignificantDigits:8}) : "Price unavailable"}</strong></div><div className="arc-market-metrics"><div><span>24h change</span><strong>{market.change24h===null?"—":(market.change24h>0?"+":"")+market.change24h.toFixed(2)+"%"}</strong></div><div><span>24h volume</span><strong>{market.volume24h===null?"—":"$"+market.volume24h.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>Liquidity</span><strong>{market.liquidityUsd===null?"—":"$"+market.liquidityUsd.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div><div><span>FDV</span><strong>{market.fdv===null?"—":"$"+market.fdv.toLocaleString(undefined,{maximumFractionDigits:2})}</strong></div></div><div className="arc-market-actions"><a href={market.url} target="_blank" rel="noreferrer">View market <ExternalLink size={13}/></a><button className="subtle-button" onClick={()=>selectMarket(market)}>{asset===market.pairLabel?"Selected for research":"Analyze this market"}</button></div></article>)}</div>}
+    <form className="mandate-form research-form" onSubmit={research}>
+      <div className="form-heading"><div><h3>AI market analysis</h3><p>Select a live market above, or enter a snapshot manually. Never include private keys or seed phrases.</p></div></div>
+      <label>Selected token / pair<input required value={asset} onChange={e=>setAsset(e.target.value)} placeholder="Choose a market above or enter a token/pair"/></label>
+      <label>Market snapshot<textarea required rows={6} value={snapshot} onChange={e=>setSnapshot(e.target.value)} placeholder={"Choose a live market above to populate this field, or paste current price, 24h change, volume, liquidity, and observations."} maxLength={8000}/><span className="field-hint">Market data and source timestamp are passed to the AI. Maximum 8,000 characters.</span></label>
+      <div className="form-note"><ShieldCheck size={16}/><span>AI research is informational. It does not execute trades, verify token safety, or guarantee returns.</span></div>
+      <button className="primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <BrainCircuit size={16}/>} {loading ? "Analyzing Arc market…" : "Generate AI research"}</button>
+    </form>
     {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
-    {analysis && <article className="mandate-card research-result"><div className="mandate-card-top"><div className="mandate-icon"><BrainCircuit size={19}/></div><div className="mandate-title"><strong>Research summary · {asset}</strong><span>Generated from user-supplied market data</span></div></div><div className="research-analysis">{analysis}</div><small className="portfolio-caption">Verify all figures against current Arc market sources before acting. This analysis does not execute trades.</small></article>}
+    {analysis && <article className="mandate-card research-result"><div className="mandate-card-top"><div className="mandate-icon"><BrainCircuit size={19}/></div><div className="mandate-title"><strong>Research summary · {asset}</strong><span>Based on indexed Arc market data and any additional supplied context</span></div></div><div className="research-analysis">{analysis}</div><small className="portfolio-caption">Verify current market conditions and token contracts before acting. Market observations may be incomplete or stale. This analysis does not execute trades.</small></article>}
   </WorkspaceFrame>;
 }
 
