@@ -72,7 +72,10 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
     if (!account || !getContractAddress()) { setMandates([]); return; }
     setLoading(true); setError("");
     try { setMandates(await loadMandates(account)); }
-    catch { setError("Mandates could not be loaded right now. Please try again shortly."); }
+    catch (cause) {
+      const detail = cause instanceof Error ? cause.message : String(cause);
+      setError("Mandates could not be loaded. " + detail.slice(0, 220));
+    }
     finally { setLoading(false); }
   }, [account]);
 
