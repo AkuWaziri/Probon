@@ -75,7 +75,7 @@ h1 { margin: 10px 0 6px; font: 600 30px "Space Grotesk", sans-serif; letter-spac
 .banner-copy span { color: #b6aec7; font-size: 10px; }
 .security-banner > button { display: flex; align-items: center; gap: 7px; z-index: 1; padding: 9px 11px; border: 1px solid #5b477f; border-radius: 8px; background: #302344; color: #e5dcff; font-size: 10px; white-space: nowrap; }
 .banner-glow { position: absolute; right: 15%; top: -75px; width: 200px; height: 150px; border-radius: 50%; background: #7654e81a; filter: blur(35px); }
-.stats-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
+.stats-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-bottom: 18px; }
 .stat-card, .panel { border: 1px solid #302b3b; border-radius: 12px; background: #15141b; }
 .stat-card { padding: 17px 17px 15px; min-width: 0; }
 .stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #b3acc3; font-size: 10px; }
