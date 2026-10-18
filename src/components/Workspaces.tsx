@@ -3,7 +3,7 @@ import { ArrowUpRight, Bot, BrainCircuit, CircleAlert, Download, ExternalLink, F
 import type { Address } from "viem";
 import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
-  createMandateOnChain, executePaymentOnChain, formatNativeUsdc, getContractAddress,
+  createMandateOnChain, executePaymentOnChain, formatNativeUsdc, getContractAddress, getNativeUsdcBalance,
   loadMandates, loadPayments, publicClient, revokeMandateOnChain,
   fundMandateOnChain, getContractOwner, getContractPauseState, setEmergencyPause, type ProbonMandate, type ProbonPayment,
 } from "../lib/probonClient";
