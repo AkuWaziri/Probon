@@ -3,7 +3,7 @@ import type { Address } from "viem";
 import type { ProbonPayment } from "./lib/probonClient";
 import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
-import { AgentsWorkspace, MandatesWorkspace, MarketResearchWorkspace, PortfolioWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
+import { AgentsWorkspace, MandatesWorkspace, PortfolioWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
   Activity, ArrowUpRight, Bot, ChevronDown,
   ExternalLink, Fingerprint, Gauge,
@@ -11,12 +11,11 @@ import {
   ShieldCheck, SlidersHorizontal, Wallet, X
 } from "lucide-react";
 
-type NavItem = "Overview" | "Portfolio" | "Market Research" | "Mandates" | "Agents" | "Transactions" | "Security";
+type NavItem = "Overview" | "Portfolio" | "Mandates" | "Agents" | "Transactions" | "Security";
 
 const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Portfolio", icon: Wallet },
-  { label: "Market Research", icon: Gauge },
   { label: "Mandates", icon: Fingerprint },
   { label: "Agents", icon: Bot },
   { label: "Transactions", icon: Activity },
@@ -255,8 +254,6 @@ function App() {
             </>
           ) : active === "Portfolio" ? (
             <PortfolioWorkspace account={walletAddress} />
-          ) : active === "Market Research" ? (
-            <MarketResearchWorkspace />
           ) : active === "Mandates" ? (
             <MandatesWorkspace account={walletAddress} onNotice={setNotice} />
           ) : active === "Agents" ? (
