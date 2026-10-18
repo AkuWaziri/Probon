@@ -158,7 +158,15 @@ function App() {
             <div className="breadcrumb"><span>Workspace</span><span className="crumb-slash">/</span><strong>{active}</strong></div>
           </div>
           <div className="topbar-actions">
-            <div className="network-pill"><span className="network-dot" /> Arc Mainnet <ChevronDown size={13} /></div>
+            <div className="network-pill" aria-label="Arc network">
+              <svg className="arc-network-logo" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="11" fill="#1769ff" />
+                <path d="M6.2 16.9 10.1 7.8a2.05 2.05 0 0 1 3.8 0l3.9 9.1h-3.1l-2.7-6.5-2.7 6.5H6.2Z" fill="#fff" />
+                <path d="M9.2 14.1h5.6" stroke="#1769ff" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <span>Arc</span>
+              <ChevronDown size={13} />
+            </div>
             <button className={`connect-button ${walletAddress ? "connected-button" : ""}`} onClick={() => void handleWallet()} disabled={walletBusy}>
               <Wallet size={16} /> {walletBusy ? "Connecting…" : walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Connect wallet"}
             </button>
