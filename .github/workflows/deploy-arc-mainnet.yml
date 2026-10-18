@@ -1,0 +1,143 @@
+name: Deploy Probon to Arc Mainnet
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_mainnet_deployment:
+        description: "This sends a real deployment transaction on Arc Mainnet."
+        required: true
+        type: choice
+        default: CANCEL
+        options:
+          - CANCEL
+          - DEPLOY_TO_ARC_MAINNET
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probon-arc-mainnet-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Test and deploy Probon
+    if: inputs.confirm_mainnet_deployment == 'DEPLOY_TO_ARC_MAINNET'
+    runs-on: ubuntu-latest
+    environment: arc-mainnet
+    timeout-minutes: 20
+    env:
+      ARC_MAINNET_RPC_URL: ${{ vars.ARC_MAINNET_RPC_URL || 'https://rpc.mainnet.arc.io' }}
+      DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+      EXPECTED_DEPLOYER_ADDRESS: ${{ secrets.EXPECTED_DEPLOYER_ADDRESS }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEPLOYER_PRIVATE_KEY}" || -z "${EXPECTED_DEPLOYER_ADDRESS}" ]]; then
+            echo "::error::Add DEPLOYER_PRIVATE_KEY and EXPECTED_DEPLOYER_ADDRESS as secrets in the arc-mainnet GitHub environment."
+            exit 1
+          fi
+
+          ACTUAL_CHAIN_ID="$(cast chain-id --rpc-url "$ARC_MAINNET_RPC_URL")"
+          if [[ "$ACTUAL_CHAIN_ID" != "5042" ]]; then
+            echo "::error::Wrong chain ID: expected Arc Mainnet 5042, got $ACTUAL_CHAIN_ID."
+            exit 1
+          fi
+
+          DERIVED_ADDRESS="$(cast wallet address --private-key "$DEPLOYER_PRIVATE_KEY")"
+          if [[ "${DERIVED_ADDRESS,,}" != "${EXPECTED_DEPLOYER_ADDRESS,,}" ]]; then
+            echo "::error::DEPLOYER_PRIVATE_KEY does not match EXPECTED_DEPLOYER_ADDRESS."
+            exit 1
+          fi
+
+          echo "Arc Mainnet chain ID verified: $ACTUAL_CHAIN_ID"
+          echo "Deployer address verified: $DERIVED_ADDRESS"
+          echo "Deployer native USDC balance (18-decimal base units):"
+          cast balance "$EXPECTED_DEPLOYER_ADDRESS" --rpc-url "$ARC_MAINNET_RPC_URL"
+
+      - name: Run contract tests
+        working-directory: contracts
+        run: forge test -vvv
+
+      - name: Deploy contract to Arc Mainnet
+        working-directory: contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          forge script script/Deploy.s.sol:DeployProbon \
+            --rpc-url "$ARC_MAINNET_RPC_URL" \
+            --broadcast \
+            --slow
+
+      - name: Record deployment address and block
+        id: deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          BROADCAST_FILE="contracts/broadcast/Deploy.s.sol/5042/run-latest.json"
+          if [[ ! -f "$BROADCAST_FILE" ]]; then
+            echo "::error::Foundry broadcast record not found at $BROADCAST_FILE."
+            exit 1
+          fi
+
+          CONTRACT_ADDRESS="$(jq -r '[.transactions[] | select(.transactionType == "CREATE" and .contractAddress != null) | .contractAddress] | last // empty' "$BROADCAST_FILE")"
+          TX_HASH="$(jq -r '[.transactions[] | select(.transactionType == "CREATE" and .hash != null) | .hash] | last // empty' "$BROADCAST_FILE")"
+          BLOCK_NUMBER="$(jq -r '[.transactions[] | select(.transactionType == "CREATE" and .receipt.blockNumber != null) | .receipt.blockNumber] | last // empty' "$BROADCAST_FILE")"
+
+          if [[ -z "$CONTRACT_ADDRESS" || -z "$TX_HASH" ]]; then
+            echo "::error::Could not extract the deployment address and transaction hash. Inspect the uploaded Foundry broadcast record."
+            exit 1
+          fi
+
+          if [[ -z "$BLOCK_NUMBER" ]]; then
+            BLOCK_NUMBER="$(cast receipt "$TX_HASH" --rpc-url "$ARC_MAINNET_RPC_URL" --json | jq -r '.blockNumber // empty')"
+          fi
+
+          {
+            echo "Network: Arc Mainnet"
+            echo "Chain ID: 5042"
+            echo "Contract address: $CONTRACT_ADDRESS"
+            echo "Deployment transaction: $TX_HASH"
+            echo "Deployment block (hex): ${BLOCK_NUMBER:-unknown}"
+            echo "Explorer: https://explorer.arc.io/address/$CONTRACT_ADDRESS"
+            echo "Transaction: https://explorer.arc.io/tx/$TX_HASH"
+          } | tee probon-deployment.txt
+
+          echo "contract_address=$CONTRACT_ADDRESS" >> "$GITHUB_OUTPUT"
+          echo "deployment_block=$BLOCK_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Upload deployment record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probon-arc-mainnet-deployment
+          path: |
+            probon-deployment.txt
+            contracts/broadcast/Deploy.s.sol/5042/run-latest.json
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Deployment summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo "## Probon deployed to Arc Mainnet"
+            echo ""
+            echo "- Contract: `${{ steps.deployment.outputs.contract_address }}`"
+            echo "- Deployment block: `${{ steps.deployment.outputs.deployment_block }}`"
+            echo "- Explorer: https://explorer.arc.io/address/${{ steps.deployment.outputs.contract_address }}"
+            echo ""
+            echo "Next: set VITE_PROBON_CONTRACT_ADDRESS and VITE_PROBON_DEPLOYMENT_BLOCK in Vercel, then push a commit to trigger the production build."
+          } >> "$GITHUB_STEP_SUMMARY"
