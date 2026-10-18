@@ -5,7 +5,7 @@ import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, lo
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
 import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
-  Activity, ArrowUpRight, Bell, Bot, ChevronDown,
+  Activity, ArrowUpRight, Bot, ChevronDown,
   CircleHelp, ExternalLink, Fingerprint, Gauge,
   LayoutDashboard, LockKeyhole, Menu, Plus, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Wallet, X
@@ -151,7 +151,6 @@ function App() {
           <div className="profile-row">
             <div className="profile-avatar">AW</div>
             <div className="profile-copy"><strong>Connected wallet</strong><span>{walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Not connected"}</span></div>
-            <ChevronDown size={15} className="muted-icon" />
           </div>
         </div>
       </aside>
