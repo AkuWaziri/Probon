@@ -66,7 +66,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
   const [expiryDays, setExpiryDays] = useState("30");
   const [initialFunding, setInitialFunding] = useState("0");
   const [showForm, setShowForm] = useState(false);
-  const [pendingHash, setPendingHash] = useState("");
+  const [pendingHash, setPendingHash] = useState<`0x${string}` | "">("");
 
   const refresh = useCallback(async () => {
     if (!account || !getContractAddress()) { setMandates([]); return; }
