@@ -294,10 +294,6 @@ export function SecurityWorkspace({ account, onNotice }: SharedProps) {
   </WorkspaceFrame>;
 }
 
-export function SettingsWorkspace({ account }: SharedProps) {
-  return <WorkspaceFrame title="Settings" subtitle="Network and contract configuration for Probon."><div className="settings-list"><div><span>Network</span><strong>Arc Mainnet</strong><small>Chain ID {ARC_CHAIN_ID_LABEL} · Real-value network</small></div><div><span>RPC endpoint</span><strong>rpc.mainnet.arc.io</strong><small>Official Arc Mainnet endpoint</small></div><div><span>Connected wallet</span><strong>{account?short(account):"Not connected"}</strong>{account&&<a href={explorerAddress(account)} target="_blank" rel="noreferrer">View on Arc Explorer <ExternalLink size={13}/></a>}</div><div><span>Probon contract</span><strong>{PROBON_CONTRACT_ADDRESS?short(PROBON_CONTRACT_ADDRESS):"Not deployed / not configured"}</strong>{PROBON_CONTRACT_ADDRESS&&<a href={explorerAddress(PROBON_CONTRACT_ADDRESS)} target="_blank" rel="noreferrer">View contract <ExternalLink size={13}/></a>}</div><div><span>Asset and precision</span><strong>Native USDC · 18 decimal native-value units</strong><small>Transaction amounts in this app are sent as Arc native value, not ERC-20 approval transfers.</small></div></div>{!PROBON_CONTRACT_ADDRESS&&<ContractMissing/>}<div className="form-note settings-warning"><CircleAlert size={16}/><span>Arc Mainnet transactions can move real USDC. Review every amount and address in your wallet before signing. Probon does not have access to your private key.</span></div></WorkspaceFrame>;
-}
-
 const ARC_CHAIN_ID_LABEL = "5042";
 
 function WorkspaceFrame({title,subtitle,action,children}:{title:string;subtitle:string;action?:ReactNode;children:ReactNode}) {
