@@ -3,15 +3,15 @@ import type { Address } from "viem";
 import type { ProbonPayment } from "./lib/probonClient";
 import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
 import { ARC_CHAIN_ID, PROBON_CONTRACT_ADDRESS } from "./lib/arc";
-import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, SettingsWorkspace, TransactionsWorkspace } from "./components/Workspaces";
+import { AgentsWorkspace, MandatesWorkspace, SecurityWorkspace, TransactionsWorkspace } from "./components/Workspaces";
 import {
   Activity, ArrowUpRight, Bell, Bot, ChevronDown,
   CircleHelp, ExternalLink, Fingerprint, Gauge,
-  LayoutDashboard, LockKeyhole, Menu, Plus, Settings2, Shield,
+  LayoutDashboard, LockKeyhole, Menu, Plus, Shield,
   ShieldAlert, ShieldCheck, SlidersHorizontal, Wallet, X
 } from "lucide-react";
 
-type NavItem = "Overview" | "Mandates" | "Agents" | "Transactions" | "Security" | "Settings";
+type NavItem = "Overview" | "Mandates" | "Agents" | "Transactions" | "Security";
 
 const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
@@ -19,7 +19,6 @@ const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
   { label: "Agents", icon: Bot },
   { label: "Transactions", icon: Activity },
   { label: "Security", icon: ShieldCheck },
-  { label: "Settings", icon: Settings2 },
 ];
 
 function App() {
@@ -149,11 +148,11 @@ function App() {
             <div className="help-icon"><CircleHelp size={17} /></div>
             <div><strong>Need a hand?</strong><p>Explore the docs and get started.</p><button onClick={() => window.open("https://docs.arc.io", "_blank", "noopener,noreferrer")}>Arc documentation <ArrowUpRight size={13} /></button></div>
           </div>
-          <button className="profile-row" onClick={() => handleNav("Settings")}>
+          <div className="profile-row">
             <div className="profile-avatar">AW</div>
             <div className="profile-copy"><strong>Connected wallet</strong><span>{walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Not connected"}</span></div>
             <ChevronDown size={15} className="muted-icon" />
-          </button>
+          </div>
         </div>
       </aside>
 
@@ -165,7 +164,6 @@ function App() {
           </div>
           <div className="topbar-actions">
             <div className="network-pill"><span className="network-dot" /> Arc Mainnet <ChevronDown size={13} /></div>
-            <button className="icon-button notification-button" aria-label="Network status" onClick={() => handleNav("Settings")}><Bell size={18} /></button>
             <button className={`connect-button ${walletAddress ? "connected-button" : ""}`} onClick={() => void handleWallet()} disabled={walletBusy}>
               <Wallet size={16} /> {walletBusy ? "Connecting…" : walletAddress ? walletAddress.slice(0, 6) + "…" + walletAddress.slice(-4) : "Connect wallet"}
             </button>
@@ -254,7 +252,7 @@ function App() {
                 <div className="table-foot"><span><span className="status-dot neutral" /> {PROBON_CONTRACT_ADDRESS ? "Live contract integration" : "No contract address configured yet"}</span><button onClick={() => handleNav("Transactions")}>Explore transactions <ArrowUpRight size={14} /></button></div>
               </section>
 
-              <footer className="page-footer"><span>© 2026 Probon</span><span><span className="footer-dot" /> Built for safer agent payments</span><button onClick={() => handleNav("Settings")}>Arc Mainnet · {ARC_CHAIN_ID} <ExternalLink size={12} /></button></footer>
+              <footer className="page-footer"><span>© 2026 Probon</span><span><span className="footer-dot" /> Built for safer agent payments</span><span>Arc Mainnet · {ARC_CHAIN_ID}</span></footer>
             </>
           ) : active === "Mandates" ? (
             <MandatesWorkspace account={walletAddress} onNotice={setNotice} />
@@ -264,9 +262,7 @@ function App() {
             <TransactionsWorkspace account={walletAddress} onNotice={setNotice} />
           ) : active === "Security" ? (
             <SecurityWorkspace account={walletAddress} onNotice={setNotice} />
-          ) : (
-            <SettingsWorkspace account={walletAddress} onNotice={setNotice} />
-          )}
+          ) : null}
         </div>
       </main>
     </div>
