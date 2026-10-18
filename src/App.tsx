@@ -136,7 +136,7 @@ function App() {
         <div className="nav-label">WORKSPACE</div>
         <nav className="primary-nav" aria-label="Main navigation">
           {navItems.map(({ label, icon: Icon }) => (
-            <button key={label} className={`nav-item ${active === label ? "nav-item-active" : ""}`} onClick={() => handleNav(label)}>
+            <button key={label} className={`nav-item ${active === label ? "nav-item-active" : ""}`} title={label} aria-label={label} onClick={() => handleNav(label)}>
               <Icon size={18} strokeWidth={1.8} /><span>{label}</span>
               
             </button>
