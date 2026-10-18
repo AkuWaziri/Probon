@@ -386,3 +386,70 @@ button:disabled { opacity: .58; cursor: not-allowed; }
 .social-links svg { display: block; width: 14px; height: 14px; }
 @media (max-width: 760px) { .social-links { margin-left: 0; } }
 .mandate-addresses a { display: inline-flex; align-items: center; gap: 5px; color: #6d35d4; font-size: 10px; text-decoration: none; }
+
+
+/* Keep navigation visible as a compact left rail on phones; tablet/desktop retain the full sidebar. */
+@media (max-width: 760px) {
+  .app-shell { align-items: stretch; }
+  .sidebar,
+  .sidebar.sidebar-open {
+    position: sticky;
+    top: 0;
+    left: auto;
+    bottom: auto;
+    z-index: 5;
+    width: 64px;
+    min-width: 64px;
+    max-width: 64px;
+    height: 100vh;
+    min-height: 100vh;
+    flex: 0 0 64px;
+    padding: 18px 7px 12px;
+    overflow: visible;
+    transform: none;
+    transition: none;
+    box-shadow: none;
+  }
+  .mobile-scrim,
+  .mobile-menu,
+  .sidebar-close { display: none !important; }
+  .brand { justify-content: center; gap: 0; padding: 0; }
+  .brand > span { display: none; }
+  .brand-mark { width: 34px; height: 34px; flex: 0 0 34px; }
+  .workspace-switcher,
+  .nav-label,
+  .profile-copy { display: none; }
+  .primary-nav { margin-top: 30px; gap: 7px; }
+  .nav-item {
+    position: relative;
+    justify-content: center;
+    gap: 0;
+    width: 48px;
+    min-height: 43px;
+    padding: 10px 0;
+    margin: 0 auto;
+    font-size: 0;
+  }
+  .nav-item > svg { width: 19px; height: 19px; flex: 0 0 19px; }
+  .nav-item-active::before { left: -7px; }
+  .sidebar-bottom { margin-top: auto; }
+  .profile-row { justify-content: center; padding: 14px 0 0; }
+  .profile-avatar { width: 34px; height: 34px; flex: 0 0 34px; }
+  .main-area { flex: 1 1 auto; min-width: 0; width: calc(100% - 64px); }
+  .topbar { min-width: 0; padding: 0 10px; }
+  .topbar-left, .topbar-actions { min-width: 0; gap: 6px; }
+  .breadcrumb { min-width: 0; }
+  .breadcrumb strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-content { min-width: 0; padding: 20px 12px; }
+  .table-wrap { max-width: 100%; overflow-x: auto; }
+  .page-footer { min-width: 0; }
+}
+@media (max-width: 420px) {
+  .sidebar,
+  .sidebar.sidebar-open { width: 56px; min-width: 56px; max-width: 56px; flex-basis: 56px; padding-right: 4px; padding-left: 4px; }
+  .nav-item { width: 44px; }
+  .main-area { width: calc(100% - 56px); }
+  .topbar { padding: 0 8px; }
+  .topbar-actions { gap: 5px; }
+  .page-content { padding-right: 10px; padding-left: 10px; }
+}
