@@ -14,22 +14,36 @@ const explorerTx = (hash: string) => ARC_EXPLORER_URL + "/tx/" + hash;
 const explorerAddress = (address: string) => ARC_EXPLORER_URL + "/address/" + address;
 
 function mandateCreationError(error: unknown): string {
-  const e = error as { name?: string; shortMessage?: string; message?: string; cause?: { name?: string; message?: string } };
+  const e = error as {
+    name?: string; shortMessage?: string; message?: string; details?: string;
+    cause?: { name?: string; shortMessage?: string; message?: string; details?: string };
+  };
   const name = [e?.name, e?.cause?.name].filter(Boolean).join(" ").toLowerCase();
-  const message = [e?.shortMessage, e?.message, e?.cause?.message].filter(Boolean).join(" ").toLowerCase();
-  if (/userrejected|user rejected|rejected the request|denied transaction|request rejected/.test(name + " " + message)) {
+  const message = [e?.shortMessage, e?.message, e?.details, e?.cause?.shortMessage, e?.cause?.message, e?.cause?.details]
+    .filter(Boolean).join(" ").toLowerCase();
+
+  if (/userrejected|user rejected|rejected the request|denied transaction|request rejected|action_rejected/.test(name + " " + message)) {
     return "Transaction cancelled in your wallet. No mandate was created.";
   }
   if (/chain.?id|wrong network|switch.*network|chain mismatch/.test(message)) {
     return "Your wallet is not on Arc Mainnet. Switch to Arc Mainnet (chain ID 5042) and try again.";
   }
-  if (/insufficient funds|exceeds the balance|not enough funds/.test(message)) {
-    return "Your wallet does not have enough native USDC to cover the transaction and network fee.";
+  if (/insufficient funds|exceeds the balance|not enough funds|gas required exceeds|funds for gas/.test(message)) {
+    return "Your wallet needs enough native USDC to cover the network fee and any initial funding. A USDC token balance on another network will not cover Arc Mainnet fees.";
   }
-  if (/revert|execution reverted|contractfunctionexecutionerror/.test(name + " " + message)) {
-    return "The contract rejected these mandate settings. Check that the daily limit is at least the per-payment limit, the addresses are valid and distinct, and the wallet has enough USDC.";
+  if (/daily limit must be at least|expiry must be between|enter a valid agent|enter one or more valid recipient|recipient addresses must be different|funding amount must be greater/.test(message)) {
+    return e.message || e.shortMessage || "Check the mandate settings and try again.";
   }
-  return "Mandate creation could not be submitted. Check Arc Mainnet, wallet balance, and the wallet confirmation, then try again.";
+  if (/revert|execution reverted|contractfunctionexecutionerror|call exception/.test(name + " " + message)) {
+    return "Arc Mainnet rejected the mandate settings. Verify the addresses, daily limit, expiry, and contract status before retrying.";
+  }
+  if (/failed to fetch|network request failed|timeout|timed out|http request failed|could not connect|network error/.test(message)) {
+    return "Could not reach the Arc Mainnet RPC to submit the transaction. Try again shortly; no transaction may have been submitted.";
+  }
+  if (/fee data|gas price|estimate gas|transaction underpriced/.test(message)) {
+    return "The wallet could not estimate the Arc Mainnet transaction fee. Check that the wallet is on Arc Mainnet and has native USDC available for fees.";
+  }
+  return "The wallet or Arc Mainnet RPC did not accept the transaction. Check the wallet network and native USDC balance, then retry. If it repeats, check the wallet's activity for a pending or failed transaction before submitting again.";
 }
 
 function WalletRequired() {
