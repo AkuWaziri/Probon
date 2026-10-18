@@ -453,3 +453,37 @@ button:disabled { opacity: .58; cursor: not-allowed; }
   .topbar-actions { gap: 5px; }
   .page-content { padding-right: 10px; padding-left: 10px; }
 }
+
+
+/* Portfolio, spending progress, CSV export, and Arc-only AI market research */
+.toolbar-actions { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.spend-progress { margin-top: 15px; }
+.spend-progress-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: #777084; font-size: 10px; }
+.spend-progress-label strong { color: #292033; font-size: 11px; }
+.spend-progress-track { width: 100%; height: 8px; overflow: hidden; border-radius: 99px; background: #eee8f7; }
+.spend-progress-track > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#6d35d4,#a78bfa); transition: width .25s ease; }
+.spend-progress small, .portfolio-caption { display: block; margin-top: 8px; color: #81768f; font-size: 10px; line-height: 1.6; }
+.portfolio-note, .research-source-card { display: flex; align-items: flex-start; gap: 11px; padding: 13px 15px; margin-bottom: 18px; border: 1px solid #d9c6ff; border-radius: 10px; background: #f7f2ff; color: #65517f; font-size: 11px; line-height: 1.7; }
+.portfolio-note svg, .research-source-card > .mandate-icon { flex-shrink: 0; }
+.portfolio-stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; margin-bottom: 18px; }
+.portfolio-allocation { margin-bottom: 22px; }
+.portfolio-allocation-row { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; margin-bottom: 15px; }
+.portfolio-allocation-row > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.portfolio-allocation-row span { color: #81768f; font-size: 10px; }
+.portfolio-allocation-row strong { color: #292033; font-size: 13px; overflow-wrap: anywhere; }
+.research-source-card strong { display: block; margin-bottom: 4px; color: #292033; font-size: 12px; }
+.research-source-card p { margin: 0 0 8px; color: #655a76; }
+.research-source-card a { display: inline-flex; align-items: center; gap: 5px; margin: 4px 14px 0 0; color: #6d35d4; font-size: 10px; text-decoration: none; }
+.research-form textarea { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #ded6e9; border-radius: 8px; outline: none; background: #fff; color: #211a2b; font: 400 12px/1.6 "DM Sans",sans-serif; resize: vertical; }
+.research-form textarea:focus { border-color: #8b5cf6; box-shadow: 0 0 0 3px #8b5cf61c; }
+.research-form > label { display: flex; flex-direction: column; gap: 7px; margin-bottom: 15px; color: #30263f; font-size: 11px; font-weight: 600; }
+.research-result { margin-top: 18px; }
+.research-analysis { white-space: pre-wrap; overflow-wrap: anywhere; padding: 15px 0; color: #40364f; font-size: 12px; line-height: 1.85; }
+@media(max-width:760px) {
+  .portfolio-stats { grid-template-columns: 1fr 1fr; }
+  .portfolio-allocation-row { grid-template-columns: 1fr; gap: 12px; }
+  .toolbar-actions { justify-content: flex-start; }
+  .workspace-toolbar { align-items: flex-start; flex-direction: column; }
+  .research-source-card { padding: 11px; }
+}
+@media(max-width:420px) { .portfolio-stats { gap: 8px; } }
