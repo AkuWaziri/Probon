@@ -8,7 +8,7 @@ import {
   Activity, ArrowUpRight, Bot, ChevronDown,
   ExternalLink, Fingerprint, Gauge,
   LayoutDashboard, LockKeyhole, Menu, Plus, Shield,
-  ShieldAlert, ShieldCheck, SlidersHorizontal, Wallet, X
+  ShieldCheck, SlidersHorizontal, Wallet, X
 } from "lucide-react";
 
 type NavItem = "Overview" | "Mandates" | "Agents" | "Transactions" | "Security";
