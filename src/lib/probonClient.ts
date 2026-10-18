@@ -95,6 +95,22 @@ export async function connectWallet(): Promise<Address> {
 }
 
 export async function getNativeUsdcBalance(address: Address): Promise<bigint> {
+  // Read through the connected wallet provider first. Browser RPC requests can
+  // fail CORS even when the wallet itself is connected and can access Arc.
+  if (window.ethereum) {
+    const chainId = String(await window.ethereum.request({ method: "eth_chainId" }));
+    if (Number.parseInt(chainId, 16) !== ARC_CHAIN_ID) {
+      throw new Error("Switch your wallet to Arc Mainnet (chain ID 5042) to read its native USDC balance.");
+    }
+    const rawBalance = await window.ethereum.request({
+      method: "eth_getBalance",
+      params: [address, "latest"],
+    });
+    if (typeof rawBalance === "string" && /^0x[0-9a-f]+$/i.test(rawBalance)) {
+      return BigInt(rawBalance);
+    }
+    throw new Error("The connected wallet returned an invalid native balance.");
+  }
   return publicClient.getBalance({ address });
 }
 
