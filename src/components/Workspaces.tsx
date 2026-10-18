@@ -164,8 +164,8 @@ export function SecurityWorkspace({ account, onNotice }: SharedProps) {
       setMandates(nextMandates);
       setContractOwner(owner);
       setPaused(pauseState);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to read contract security state.");
+    } catch {
+      setError("Security settings could not be loaded right now. Please try again shortly.");
     }
   }, [account]);
 
@@ -181,8 +181,8 @@ export function SecurityWorkspace({ account, onNotice }: SharedProps) {
       setPaused(!paused);
       onNotice(paused ? "Probon global payment pause has been lifted." : "Probon global payment pause is active.");
       await refresh();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unable to update the global pause.");
+    } catch {
+      setError("The security setting could not be updated. Check your wallet and try again.");
     } finally { setBusy(false); }
   }
 
