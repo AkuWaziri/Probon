@@ -8,6 +8,9 @@ contract Probon {
     uint256 public constant MAX_RECIPIENTS = 50;
     uint256 public constant MIN_EXPIRY = 1 hours;
     uint256 public constant MAX_EXPIRY = 365 days;
+    uint256 public constant CREATION_FEE_BPS = 100; // 1% of initial funding
+    uint256 public constant BPS_DENOMINATOR = 10_000;
+    address public constant FEE_RECIPIENT = 0x5Bce25397eEfbc76f6479e6838c00a5115dbEA4c;
 
     address public owner;
     bool public paused;
@@ -33,6 +36,8 @@ contract Probon {
 
     event MandateCreated(uint256 indexed mandateId, address indexed owner, address indexed agent, uint256 maxPerTx, uint256 dailyLimit, uint64 expiresAt, uint256 initialFunding);
     event MandateFunded(uint256 indexed mandateId, address indexed funder, uint256 amount);
+    event MandateCreationFeePaid(uint256 indexed mandateId, address indexed feeRecipient, uint256 grossFunding, uint256 feeAmount, uint256 netFunding);
+    event MandateFundsWithdrawn(uint256 indexed mandateId, address indexed mandateOwner, address indexed recipient, uint256 amount);
     event RecipientConfigured(uint256 indexed mandateId, address indexed recipient);
     event PaymentExecuted(uint256 indexed mandateId, address indexed agent, address indexed recipient, uint256 amount, uint256 day);
     event MandateRevoked(uint256 indexed mandateId, uint256 refunded);
@@ -77,11 +82,15 @@ contract Probon {
         uint128 maxPerTx,
         uint128 dailyLimit,
         uint64 expiresAt
-    ) external payable returns (uint256 mandateId) {
+    ) external payable nonReentrant returns (uint256 mandateId) {
         if (agent == address(0) || agent == msg.sender) revert InvalidAddress();
         if (recipients.length == 0 || recipients.length > MAX_RECIPIENTS) revert InvalidRecipients();
         if (maxPerTx == 0 || dailyLimit < maxPerTx || expiresAt < block.timestamp + MIN_EXPIRY || expiresAt > block.timestamp + MAX_EXPIRY) revert InvalidPolicy();
         if (msg.value > type(uint128).max) revert InvalidPolicy();
+
+        uint256 fee = (msg.value * CREATION_FEE_BPS) / BPS_DENOMINATOR;
+        uint256 netFunding = msg.value - fee;
+        if (netFunding > type(uint128).max) revert InvalidPolicy();
 
         mandateId = nextMandateId++;
         _mandates[mandateId] = Mandate({
@@ -90,7 +99,7 @@ contract Probon {
             maxPerTx: maxPerTx,
             dailyLimit: dailyLimit,
             expiresAt: expiresAt,
-            balance: uint128(msg.value),
+            balance: uint128(netFunding),
             totalSpent: 0,
             active: true
         });
@@ -102,8 +111,13 @@ contract Probon {
             emit RecipientConfigured(mandateId, recipient);
         }
 
-        emit MandateCreated(mandateId, msg.sender, agent, maxPerTx, dailyLimit, expiresAt, msg.value);
-        if (msg.value > 0) emit MandateFunded(mandateId, msg.sender, msg.value);
+        emit MandateCreated(mandateId, msg.sender, agent, maxPerTx, dailyLimit, expiresAt, netFunding);
+        if (netFunding > 0) emit MandateFunded(mandateId, msg.sender, netFunding);
+        emit MandateCreationFeePaid(mandateId, FEE_RECIPIENT, msg.value, fee, netFunding);
+        if (fee > 0) {
+            (bool feePaid,) = payable(FEE_RECIPIENT).call{value: fee}("");
+            if (!feePaid) revert TransferFailed();
+        }
     }
 
     function fundMandate(uint256 mandateId) external payable {
@@ -113,6 +127,20 @@ contract Probon {
         if (msg.value == 0 || uint256(m.balance) + msg.value > type(uint128).max) revert InvalidPolicy();
         m.balance += uint128(msg.value);
         emit MandateFunded(mandateId, msg.sender, msg.value);
+    }
+
+    /// @notice Allows a mandate owner to move any remaining mandate funds to another wallet.
+    /// @dev This does not revoke the mandate; subsequent agent payments remain subject to the reduced balance.
+    function withdrawMandateFunds(uint256 mandateId, address payable recipient, uint128 amount) external nonReentrant {
+        Mandate storage m = _getMandate(mandateId);
+        if (msg.sender != m.owner) revert Unauthorized();
+        if (recipient == address(0) || recipient == address(this)) revert InvalidAddress();
+        if (amount == 0 || amount > m.balance) revert InsufficientMandateBalance();
+
+        m.balance -= amount;
+        (bool success,) = recipient.call{value: amount}("");
+        if (!success) revert TransferFailed();
+        emit MandateFundsWithdrawn(mandateId, msg.sender, recipient, amount);
     }
 
     function executePayment(uint256 mandateId, address payable recipient, uint128 amount) external nonReentrant {
