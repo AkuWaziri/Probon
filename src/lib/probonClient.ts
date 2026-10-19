@@ -47,13 +47,16 @@ export type ProbonPayment = {
 function readTransport() {
   // In-browser, prefer the connected wallet's RPC connection. Some browsers or
   // networks block direct cross-origin requests to public Arc RPC endpoints.
+  const transports = [];
   if (typeof window !== "undefined" && window.ethereum) {
-    return custom(window.ethereum as never);
+    transports.push(custom(window.ethereum as never));
   }
-  return fallback([
-    http(ARC_RPC_URL, { timeout: 8_000, retryCount: 1 }),
-    http("https://rpc.arc-scan.org", { timeout: 12_000, retryCount: 1 }),
-  ]);
+  transports.push(
+    http(ARC_RPC_URL, { timeout: 8_000, retryCount: 0 }),
+    http("https://rpc.arc-scan.org", { timeout: 12_000, retryCount: 0 }),
+  );
+  // Rotate to another provider when the wallet's RPC is rate-limited.
+  return fallback(transports, { retryCount: 0, rank: false });
 }
 
 export const publicClient = createPublicClient({
@@ -135,7 +138,8 @@ function walletClientFor(address: Address) {
 async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipientConfiguredEvent | typeof paymentExecutedEvent, args?: any) {
   const contractAddress = requireContract();
   const latestBlock = await publicClient.getBlockNumber();
-  const chunkSize = 10_000n;
+  // Smaller ranges avoid provider log-query limits and reduce 429 responses.
+  const chunkSize = 2_000n;
   const logs = [];
   for (let fromBlock = PROBON_DEPLOYMENT_BLOCK; fromBlock <= latestBlock; fromBlock += chunkSize) {
     const toBlock = fromBlock + chunkSize - 1n < latestBlock ? fromBlock + chunkSize - 1n : latestBlock;
@@ -159,11 +163,15 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
       ? [decoded.args.mandateId] : [];
   }))];
 
-  const recipientLogs = (await Promise.all(ids.map((id) => getLogsInChunks(recipientConfiguredEvent, { mandateId: id })))).flat();
+  // Fetch recipient configuration history once, then group locally. Scanning
+  // the entire chain separately for every mandate multiplies RPC load and
+  // commonly triggers HTTP 429 rate limits.
+  const recipientLogs = ids.length ? await getLogsInChunks(recipientConfiguredEvent) : [];
+  const mandateIds = new Set(ids);
   const recipientsByMandate = new Map<bigint, Address[]>();
   for (const log of recipientLogs) {
     const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
-    if (decoded.eventName !== "RecipientConfigured") continue;
+    if (decoded.eventName !== "RecipientConfigured" || !mandateIds.has(decoded.args.mandateId)) continue;
     const list = recipientsByMandate.get(decoded.args.mandateId) ?? [];
     list.push(decoded.args.recipient);
     recipientsByMandate.set(decoded.args.mandateId, list);
