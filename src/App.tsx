@@ -8,7 +8,7 @@ import { PortfolioDashboard } from "./components/PortfolioDashboard";
 import {
   Activity, ArrowUpRight, Bot, ChevronDown, PanelLeftClose, PanelLeftOpen,
   ExternalLink, Fingerprint, Gauge,
-  LayoutDashboard, LockKeyhole, Menu, Plus, Shield,
+  LayoutDashboard, LockKeyhole, Menu, Plus,
   ShieldCheck, SlidersHorizontal, Wallet, X
 } from "lucide-react";
 
