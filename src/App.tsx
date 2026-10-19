@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
 import type { ProbonPayment } from "./lib/probonClient";
 import { connectWallet, formatNativeUsdc, getNativeUsdcBalance, loadMandates, loadPayments } from "./lib/probonClient";
@@ -33,6 +33,8 @@ function App() {
   const [mobileNav, setMobileNav] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [notice, setNotice] = useState("");
+  const knownPaymentHashes = useRef<Set<string> | null>(null);
+  const expiryAlertsSent = useRef<Set<string>>(new Set());
 
   const handleNav = (label: NavItem) => {
     setActive(label);
@@ -73,14 +75,33 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
-      const [balance, mandates, payments] = await Promise.all([
+      const [balance, mandates, paymentResult] = await Promise.all([
         walletAddress ? getNativeUsdcBalance(walletAddress).catch(() => null) : Promise.resolve(null),
         walletAddress && PROBON_CONTRACT_ADDRESS ? loadMandates(walletAddress).catch(() => []) : Promise.resolve([]),
-        PROBON_CONTRACT_ADDRESS ? loadPayments().catch(() => []) : Promise.resolve([]),
+        PROBON_CONTRACT_ADDRESS ? loadPayments().then(value => ({ value, ok: true as const })).catch(() => ({ value: [], ok: false as const })) : Promise.resolve({ value: [], ok: false as const }),
       ]);
+      const payments = paymentResult.value;
       if (!cancelled) {
+        if (paymentResult.ok) {
+          const currentHashes = new Set(payments.map(payment => payment.transactionHash));
+          if (knownPaymentHashes.current === null) {
+            knownPaymentHashes.current = currentHashes;
+          } else {
+            const newlySeen = payments.find(payment => !knownPaymentHashes.current?.has(payment.transactionHash));
+            if (newlySeen) {
+              setNotice(`Payment confirmed: ${formatNativeUsdc(newlySeen.amount)} USDC to ${newlySeen.recipient.slice(0, 6)}…${newlySeen.recipient.slice(-4)}. View it in Transactions.`);
+            }
+            knownPaymentHashes.current = currentHashes;
+          }
+        }
+        const now = BigInt(Math.floor(Date.now() / 1000));
+        const soon = mandates.find(m => m.active && m.expiresAt > now && m.expiresAt <= now + 86400n && !expiryAlertsSent.current.has(m.id.toString()));
+        if (soon) {
+          expiryAlertsSent.current.add(soon.id.toString());
+          setNotice(`Mandate #${soon.id.toString()} expires within 24 hours. Review it in Mandates.`);
+        }
         setNativeBalance(balance);
-        setMandateCount(mandates.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt).length);
+        setMandateCount(mandates.filter(m => m.active && now < m.expiresAt).length);
         setTotalPaid(payments.reduce((sum, payment) => sum + payment.amount, 0n));
         setPaymentsCount(payments.length);
         setRecentPayments(payments.slice(0, 4));
