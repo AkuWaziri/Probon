@@ -112,6 +112,38 @@ contract ProbonTest {
         require(balance == 0 && !active, "revoked");
     }
 
+    function testOneClickAgentPauseBlocksPaymentsAndCanResume() public {
+        uint256 id = _create();
+        vm.prank(owner);
+        probon.setAgentPaused(agent, true);
+        require(probon.agentPaused(owner, agent), "agent paused");
+
+        vm.expectRevert(abi.encodeWithSelector(Probon.MandateInactive.selector));
+        vm.prank(agent);
+        probon.executePayment(id, recipient, 1 ether);
+
+        vm.prank(owner);
+        probon.setAgentPaused(agent, false);
+        require(!probon.agentPaused(owner, agent), "agent resumed");
+
+        vm.prank(agent);
+        probon.executePayment(id, recipient, 1 ether);
+    }
+
+    function testAgentPauseIsScopedToMandateOwner() public {
+        uint256 id = _create();
+        address otherOwner = address(0xD00D);
+        vm.deal(otherOwner, 10 ether);
+        vm.prank(otherOwner);
+        probon.setAgentPaused(agent, true);
+
+        require(probon.agentPaused(otherOwner, agent), "other owner pause set");
+        require(!probon.agentPaused(owner, agent), "pause does not affect mandate owner");
+
+        vm.prank(agent);
+        probon.executePayment(id, recipient, 1 ether);
+    }
+
     function testGlobalPauseBlocksPayments() public {
         uint256 id = _create();
         vm.prank(owner);
