@@ -158,36 +158,38 @@ async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipi
 
 export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const contractAddress = requireContract();
-  const created = await getLogsInChunks(mandateCreatedEvent, { owner });
-  const ids = [...new Set(created.flatMap((log) => {
-    const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
-    return decoded.eventName === "MandateCreated" && decoded.args.owner.toLowerCase() === owner.toLowerCase()
-      ? [decoded.args.mandateId] : [];
-  }))];
+  // Read mandate IDs from contract state rather than eth_getLogs. Public Arc
+  // RPC providers may rate-limit historical log scans, which should not block
+  // the owner from seeing mandates that already exist on-chain.
+  const nextId = await publicClient.readContract({
+    address: contractAddress,
+    abi: probonAbi,
+    functionName: "nextMandateId",
+  }) as bigint;
+  const ids: bigint[] = [];
+  for (let id = 1n; id < nextId; id++) ids.push(id);
 
-  // Fetch recipient configuration history once, then group locally. Scanning
-  // the entire chain separately for every mandate multiplies RPC load and
-  // commonly triggers HTTP 429 rate limits.
-  const recipientLogs = ids.length ? await getLogsInChunks(recipientConfiguredEvent) : [];
-  const mandateIds = new Set(ids);
-  const recipientsByMandate = new Map<bigint, Address[]>();
-  for (const log of recipientLogs) {
-    const decoded = decodeEventLog({ abi: probonAbi, data: log.data, topics: log.topics });
-    if (decoded.eventName !== "RecipientConfigured" || !mandateIds.has(decoded.args.mandateId)) continue;
-    const list = recipientsByMandate.get(decoded.args.mandateId) ?? [];
-    list.push(decoded.args.recipient);
-    recipientsByMandate.set(decoded.args.mandateId, list);
+  const mandates: ProbonMandate[] = [];
+  // Limit concurrent RPC calls to avoid bursts of requests.
+  for (let i = 0; i < ids.length; i += 4) {
+    const batch = await Promise.all(ids.slice(i, i + 4).map(async (id) => {
+      const raw = await publicClient.readContract({
+        address: contractAddress,
+        abi: probonAbi,
+        functionName: "getMandatePolicy",
+        args: [id],
+      }) as readonly [Address, Address, bigint, bigint, bigint, bigint, bigint, boolean];
+      if (raw[0].toLowerCase() !== owner.toLowerCase()) return null;
+      return {
+        id, owner: raw[0], agent: raw[1], maxPerTx: raw[2], dailyLimit: raw[3],
+        expiresAt: raw[4], balance: raw[5], totalSpent: raw[6], active: raw[7],
+        // Recipient details are not enumerable from contract state; avoid
+        // blocking mandate visibility on historical event-index availability.
+        recipients: [],
+      } satisfies ProbonMandate;
+    }));
+    mandates.push(...batch.filter((item): item is ProbonMandate => item !== null));
   }
-
-  const mandates = await Promise.all(ids.map(async (id) => {
-    const raw = await publicClient.readContract({
-      address: contractAddress,
-      abi: probonAbi,
-      functionName: "getMandatePolicy",
-      args: [id],
-    }) as readonly [Address, Address, bigint, bigint, bigint, bigint, bigint, boolean];
-    return { id, owner: raw[0], agent: raw[1], maxPerTx: raw[2], dailyLimit: raw[3], expiresAt: raw[4], balance: raw[5], totalSpent: raw[6], active: raw[7], recipients: recipientsByMandate.get(id) ?? [] };
-  }));
   return mandates.sort((a, b) => Number(b.id - a.id));
 }
 
