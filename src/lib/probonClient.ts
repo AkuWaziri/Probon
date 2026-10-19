@@ -257,6 +257,20 @@ export async function executePaymentOnChain(account: Address, id: bigint, recipi
   });
 }
 
+export async function setAgentPausedOnChain(account: Address, agent: Address, paused: boolean) {
+  return walletClientFor(account).writeContract({
+    address: requireContract(), abi: probonAbi, functionName: "setAgentPaused",
+    args: [agent, paused], account, chain: arcMainnet,
+  });
+}
+
+export async function getAgentPaused(owner: Address, agent: Address): Promise<boolean> {
+  return publicClient.readContract({
+    address: requireContract(), abi: probonAbi, functionName: "agentPaused",
+    args: [owner, agent],
+  });
+}
+
 export async function setEmergencyPause(account: Address, paused: boolean) {
   return walletClientFor(account).writeContract({
     address: requireContract(), abi: probonAbi, functionName: "setPaused",
