@@ -156,10 +156,11 @@ function App() {
           </div>
           <div className="topbar-actions">
             <div className="network-pill" aria-label="Arc network">
-              <svg className="arc-network-logo" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="11" fill="#1769ff" />
-                <path d="M6.2 16.9 10.1 7.8a2.05 2.05 0 0 1 3.8 0l3.9 9.1h-3.1l-2.7-6.5-2.7 6.5H6.2Z" fill="#fff" />
-                <path d="M9.2 14.1h5.6" stroke="#1769ff" strokeWidth="1.5" strokeLinecap="round" />
+              <svg className="arc-network-logo" viewBox="0 0 40 40" aria-hidden="true">
+                <defs><linearGradient id="arcLogoBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#03112c"/><stop offset="0.62" stopColor="#08284a"/><stop offset="1" stopColor="#315c79"/></linearGradient><linearGradient id="arcLogoMark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#ffffff"/><stop offset="1" stopColor="#b8c7d2"/></linearGradient></defs>
+                <rect width="40" height="40" rx="7" fill="url(#arcLogoBg)"/>
+                <path d="M7.2 30.7 12.1 13.8C14.1 7.1 18 3.9 20.8 3.9c4.6 0 8.4 5.5 10.4 13.2l2.7 13.6-5.4-3.3-2.3-10.1c-1.4-5.2-3.3-8.1-5.4-8.1-2.3 0-4.4 3.7-6 9.3l-3.2 12.2Z" fill="url(#arcLogoMark)"/>
+                <path d="M17.4 22.4 27.4 22.9 28.5 27.3 17 26.2Z" fill="url(#arcLogoBg)"/>
               </svg>
               <span>Arc</span>
               <ChevronDown size={13} />
