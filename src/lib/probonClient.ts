@@ -241,6 +241,16 @@ export async function fundMandateOnChain(account: Address, id: bigint, amount: s
   });
 }
 
+export async function withdrawMandateFundsOnChain(account: Address, id: bigint, recipient: string, amount: string) {
+  if (!isAddress(recipient)) throw new Error("Enter a valid destination wallet address.");
+  const value = parseUnits(amount, NATIVE_USDC_DECIMALS);
+  if (value <= 0n || value > (2n ** 128n - 1n)) throw new Error("Withdrawal amount must be greater than zero and within the supported amount range.");
+  return walletClientFor(account).writeContract({
+    address: requireContract(), abi: probonAbi, functionName: "withdrawMandateFunds",
+    args: [id, getAddress(recipient), value], account, chain: arcMainnet,
+  });
+}
+
 export async function revokeMandateOnChain(account: Address, id: bigint) {
   return walletClientFor(account).writeContract({
     address: requireContract(), abi: probonAbi, functionName: "revokeMandate",
