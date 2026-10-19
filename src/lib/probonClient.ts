@@ -172,7 +172,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
   const mandates: ProbonMandate[] = [];
   // Limit concurrent RPC calls to avoid bursts of requests.
   for (let i = 0; i < ids.length; i += 4) {
-    const batch = await Promise.all(ids.slice(i, i + 4).map(async (id) => {
+    const batch: (ProbonMandate | null)[] = await Promise.all(ids.slice(i, i + 4).map(async (id): Promise<ProbonMandate | null> => {
       const raw = await publicClient.readContract({
         address: contractAddress,
         abi: probonAbi,
@@ -185,7 +185,7 @@ export async function loadMandates(owner: Address): Promise<ProbonMandate[]> {
         expiresAt: raw[4], balance: raw[5], totalSpent: raw[6], active: raw[7],
         // Recipient details are not enumerable from contract state; avoid
         // blocking mandate visibility on historical event-index availability.
-        recipients: [],
+        recipients: [] as Address[],
       } satisfies ProbonMandate;
     }));
     mandates.push(...batch.filter((item): item is ProbonMandate => item !== null));
