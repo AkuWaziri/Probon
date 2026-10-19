@@ -5,7 +5,7 @@ import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
   createMandateOnChain, executePaymentOnChain, formatNativeUsdc, getContractAddress, getNativeUsdcBalance,
   loadMandates, loadPayments, publicClient, revokeMandateOnChain,
-  fundMandateOnChain, getContractOwner, getContractPauseState, setEmergencyPause, type ProbonMandate, type ProbonPayment,
+  fundMandateOnChain, getContractOwner, getContractPauseState, setEmergencyPause, getAgentPaused, setAgentPausedOnChain, type ProbonMandate, type ProbonPayment,
 } from "../lib/probonClient";
 
 type SharedProps = { account: Address | null; onNotice: (message: string) => void };
@@ -199,12 +199,97 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
   </WorkspaceFrame>;
 }
 
-export function AgentsWorkspace({ account }: SharedProps) {
+export function AgentsWorkspace({ account, onNotice }: SharedProps) {
   const [mandates, setMandates] = useState<ProbonMandate[]>([]);
-  useEffect(() => { if (account && getContractAddress()) void loadMandates(account).then(setMandates).catch(()=>setMandates([])); else setMandates([]); }, [account]);
-  if (!account) return <WorkspaceFrame title="Agents" subtitle="Agent identities are read from your on-chain mandates."><WalletRequired/></WorkspaceFrame>;
-  const unique = [...new Map(mandates.map(m => [m.agent.toLowerCase(), m])).values()];
-  return <WorkspaceFrame title="Agents" subtitle="Agent identities and their associated payment permissions.">{!PROBON_CONTRACT_ADDRESS && <ContractMissing/>}{unique.length ? <div className="mandate-list">{unique.map(m=><article className="mandate-card agent-card" key={m.agent}><div className="mandate-card-top"><div className="mandate-icon"><Bot size={18}/></div><div className="mandate-title"><strong>{short(m.agent)}</strong><span>{mandates.filter(x=>x.agent.toLowerCase()===m.agent.toLowerCase()).length} mandate(s)</span></div><a href={explorerAddress(m.agent)} target="_blank" rel="noreferrer"><ExternalLink size={14}/></a></div><p>Permissioned by mandate #{m.id.toString()}. Contract enforcement applies to every payment attempt.</p></article>)}</div>:<div className="workspace-empty"><Bot size={26}/><strong>No agents registered</strong><span>Create a mandate to assign an agent wallet and define its payment permissions.</span></div>}</WorkspaceFrame>;
+  const [pauseStates, setPauseStates] = useState<Record<string, boolean>>({});
+  const [busyAgent, setBusyAgent] = useState<string>("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!account || !getContractAddress()) { setMandates([]); setPauseStates({}); return; }
+    setLoading(true);
+    try {
+      const rows = await loadMandates(account);
+      setMandates(rows);
+      const agents = [...new Set(rows.map(m => m.agent))];
+      const states = await Promise.all(agents.map(async agent => {
+        try { return [agent.toLowerCase(), await getAgentPaused(account, agent)] as const; }
+        catch { return [agent.toLowerCase(), false] as const; }
+      }));
+      setPauseStates(Object.fromEntries(states));
+      setError("");
+    } catch {
+      setError("Agent identities could not be loaded from Arc Mainnet. Refresh and try again.");
+      setMandates([]);
+    } finally { setLoading(false); }
+  }, [account]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  async function toggleAgentPause(agent: Address, currentlyPaused: boolean) {
+    if (!account || busyAgent) return;
+    const action = currentlyPaused ? "resume" : "pause";
+    if (!window.confirm(`${action === "pause" ? "Pause" : "Resume"} this agent across all mandates owned by your wallet? This changes on-chain payment permissions and requires a wallet transaction.`)) return;
+    setBusyAgent(agent.toLowerCase());
+    setError("");
+    try {
+      const hash = await setAgentPausedOnChain(account, agent, !currentlyPaused);
+      onNotice(`Agent ${action} submitted. Waiting for Arc Mainnet confirmation…`);
+      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      if (receipt.status !== "success") throw new Error("transaction reverted");
+      onNotice(`Agent ${action === "pause" ? "paused" : "resumed"} on Arc Mainnet. ${hash}`);
+      await refresh();
+    } catch {
+      setError("Agent pause could not be updated. This feature requires the updated Probon contract to be deployed on Arc Mainnet; check your wallet and contract address.");
+    } finally { setBusyAgent(""); }
+  }
+
+  if (!account) return <WorkspaceFrame title="Agents" subtitle="Agent identities and payment controls are read from your on-chain mandates."><WalletRequired/></WorkspaceFrame>;
+  const grouped = [...new Map(mandates.map(m => [m.agent.toLowerCase(), m.agent])).values()];
+  return <WorkspaceFrame title="Agents" subtitle="Identity cards, permissions, spending limits, and one-click on-chain pause controls.">
+    {!PROBON_CONTRACT_ADDRESS && <ContractMissing/>}
+    {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
+    <div className="workspace-toolbar"><span>{grouped.length} agent wallet{grouped.length === 1 ? "" : "s"} · Arc Mainnet</span><button className="subtle-button" onClick={() => void refresh()} disabled={loading}><RefreshCw size={14} className={loading ? "spin" : ""}/> Refresh</button></div>
+    {loading ? <div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Loading agent identities…</span></div> : grouped.length ? <div className="mandate-list">{grouped.map(agent => {
+      const related = mandates.filter(m => m.agent.toLowerCase() === agent.toLowerCase());
+      const active = related.filter(m => m.active && BigInt(Math.floor(Date.now() / 1000)) < m.expiresAt);
+      const paused = Boolean(pauseStates[agent.toLowerCase()]);
+      const totalBalance = related.reduce((sum, m) => sum + m.balance, 0n);
+      const totalSpent = related.reduce((sum, m) => sum + m.totalSpent, 0n);
+      const recipients = [...new Set(related.flatMap(m => m.recipients.map(r => r.toLowerCase())))];
+      return <article className="mandate-card agent-identity-card" key={agent}>
+        <div className="mandate-card-top">
+          <div className="mandate-icon"><Bot size={19}/></div>
+          <div className="mandate-title"><strong>Agent {short(agent)}</strong><span>{active.length} active mandate{active.length === 1 ? "" : "s"} · {related.length} total</span></div>
+          <span className={"mandate-badge " + (paused ? "badge-off" : active.length ? "badge-active" : "badge-off")}>{paused ? "PAUSED" : active.length ? "ACTIVE" : "INACTIVE"}</span>
+        </div>
+        <div className="agent-address-line"><span>Agent wallet</span><a href={explorerAddress(agent)} target="_blank" rel="noreferrer">{agent} <ExternalLink size={12}/></a><button className="subtle-button" onClick={() => void navigator.clipboard?.writeText(agent)}>Copy address</button></div>
+        <div className="mandate-stats agent-identity-stats">
+          <div><span>Available balance</span><strong>{formatNativeUsdc(totalBalance)} USDC</strong></div>
+          <div><span>Total recorded spend</span><strong>{formatNativeUsdc(totalSpent)} USDC</strong></div>
+          <div><span>Allowed recipients</span><strong>{recipients.length}</strong></div>
+          <div><span>Active mandates</span><strong>{active.length}</strong></div>
+        </div>
+        <div className="agent-mandate-list">{related.map(m => {
+          const expired = BigInt(Math.floor(Date.now() / 1000)) >= m.expiresAt;
+          const status = !m.active ? "Revoked" : expired ? "Expired" : paused ? "Paused" : "Active";
+          return <div className="agent-mandate-row" key={m.id.toString()}>
+            <div><strong>Mandate #{m.id.toString()}</strong><span>{status} · max {formatNativeUsdc(m.maxPerTx)} USDC/payment · daily cap {formatNativeUsdc(m.dailyLimit)} USDC</span></div>
+            <span>{formatNativeUsdc(m.balance)} USDC left</span>
+          </div>;
+        })}</div>
+        <div className="mandate-actions agent-identity-actions">
+          <a className="subtle-button" href={explorerAddress(agent)} target="_blank" rel="noreferrer">View on Arc Explorer <ExternalLink size={13}/></a>
+          <button className={paused ? "outline-button" : "danger-button"} disabled={Boolean(busyAgent) || active.length === 0} onClick={() => void toggleAgentPause(agent, paused)}>
+            {busyAgent === agent.toLowerCase() ? <LoaderCircle className="spin" size={14}/> : <ShieldCheck size={14}/>}
+            {busyAgent === agent.toLowerCase() ? "Confirming…" : paused ? "Resume agent" : "Pause agent"}
+          </button>
+        </div>
+        <p className="agent-pause-note">Pause applies to every mandate owned by your connected wallet for this agent. It does not affect other owners' mandates.</p>
+      </article>;
+    })}</div> : <div className="workspace-empty"><Bot size={26}/><strong>No agents registered</strong><span>Create a mandate to assign an agent wallet and define its payment permissions.</span></div>}
+  </WorkspaceFrame>;
 }
 
 export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
@@ -217,13 +302,28 @@ export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const refresh = useCallback(async()=>{if(!PROBON_CONTRACT_ADDRESS){setPayments([]);return;}setLoading(true);try{setPayments(await loadPayments());if(account)setMandates(await loadMandates(account));}catch{setError("On-chain activity could not be loaded right now. Please try again shortly.");}finally{setLoading(false);}},[account]);
-  function exportPayments() {
+  async function exportPayments() {
     if (!payments.length) { setError("There are no loaded payment events to export."); return; }
-    const headers = ["mandate_id","agent","recipient","amount_usdc","block_number","transaction_hash","arc_explorer_url"];
-    const rows = payments.map(p => [p.mandateId.toString(), p.agent, p.recipient, formatNativeUsdc(p.amount, 18), p.blockNumber.toString(), p.transactionHash, explorerTx(p.transactionHash)]);
-    const csv = [headers, ...rows].map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }));
-    const link = document.createElement("a"); link.href = url; link.download = "probon-arc-mainnet-transactions.csv"; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    setError("");
+    try {
+      const blockNumbers = [...new Set(payments.map(p => p.blockNumber.toString()))];
+      const timestamps = new Map<string, string>();
+      await Promise.all(blockNumbers.map(async number => {
+        try {
+          const block = await publicClient.getBlock({ blockNumber: BigInt(number) });
+          timestamps.set(number, new Date(Number(block.timestamp) * 1000).toISOString());
+        } catch { timestamps.set(number, ""); }
+      }));
+      const headers = ["timestamp_utc","network","chain_id","status","mandate_id","agent_wallet","recipient_wallet","amount_usdc","block_number","transaction_hash","arc_explorer_url"];
+      const rows = payments.map(p => [timestamps.get(p.blockNumber.toString()) || "", "Arc Mainnet", "5042", "Confirmed", p.mandateId.toString(), p.agent, p.recipient, formatNativeUsdc(p.amount, 18), p.blockNumber.toString(), p.transactionHash, explorerTx(p.transactionHash)]);
+      const csv = [headers, ...rows].map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(",")).join("\r\n");
+      const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }));
+      const link = document.createElement("a"); link.href = url; link.download = "probon-arc-mainnet-transactions.csv"; document.body.appendChild(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      onNotice(`Exported ${payments.length} confirmed Arc Mainnet transactions to CSV.`);
+    } catch {
+      setError("The transaction export could not be prepared. Refresh the transaction list and try again.");
+    }
   }
   useEffect(()=>{void refresh();},[refresh]);
   async function pay(event:FormEvent){event.preventDefault();if(!account)return;setBusy(true);setError("");try{const hash=await executePaymentOnChain(account,BigInt(mandateId),recipient,amount);onNotice("Payment submitted. Waiting for confirmation…");await publicClient.waitForTransactionReceipt({hash});onNotice("Payment executed on Arc Mainnet: "+hash);await refresh();}catch{setError("The payment could not be completed. Check the wallet confirmation and try again.");}finally{setBusy(false);}}
