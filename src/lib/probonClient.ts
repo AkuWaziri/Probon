@@ -51,10 +51,7 @@ function readTransport() {
   if (typeof window !== "undefined" && window.ethereum) {
     transports.push(custom(window.ethereum as never));
   }
-  transports.push(
-    http(ARC_RPC_URL, { timeout: 8_000, retryCount: 0 }),
-    http("https://rpc.arc-scan.org", { timeout: 12_000, retryCount: 0 }),
-  );
+  transports.push(http(ARC_RPC_URL, { timeout: 12_000, retryCount: 0 }));
   // Rotate to another provider when the wallet's RPC is rate-limited.
   return fallback(transports, { retryCount: 0, rank: false });
 }
@@ -138,10 +135,15 @@ function walletClientFor(address: Address) {
 async function getLogsInChunks(event: typeof mandateCreatedEvent | typeof recipientConfiguredEvent | typeof paymentExecutedEvent, args?: any) {
   const contractAddress = requireContract();
   const latestBlock = await publicClient.getBlockNumber();
-  // Smaller ranges avoid provider log-query limits and reduce 429 responses.
-  const chunkSize = 2_000n;
+  // The deployment block should be configured in Vercel. Until then, scan a
+  // bounded recent window so a missing env var cannot trigger a chain-wide
+  // eth_getLogs crawl and rate-limit the RPC. Probon was deployed recently.
+  const startBlock = PROBON_DEPLOYMENT_BLOCK > 0n
+    ? PROBON_DEPLOYMENT_BLOCK
+    : (latestBlock > 100_000n ? latestBlock - 100_000n : 0n);
+  const chunkSize = 10_000n;
   const logs = [];
-  for (let fromBlock = PROBON_DEPLOYMENT_BLOCK; fromBlock <= latestBlock; fromBlock += chunkSize) {
+  for (let fromBlock = startBlock; fromBlock <= latestBlock; fromBlock += chunkSize) {
     const toBlock = fromBlock + chunkSize - 1n < latestBlock ? fromBlock + chunkSize - 1n : latestBlock;
     logs.push(...await publicClient.getLogs({
       address: contractAddress,
