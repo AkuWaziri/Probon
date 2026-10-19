@@ -388,54 +388,58 @@ button:disabled { opacity: .58; cursor: not-allowed; }
 .mandate-addresses a { display: inline-flex; align-items: center; gap: 5px; color: #6d35d4; font-size: 10px; text-decoration: none; }
 
 
-/* Keep navigation visible as a compact left rail on phones; tablet/desktop retain the full sidebar. */
+/* On phones, keep the sidebar fully off-canvas until the hamburger is tapped. */
 @media (max-width: 760px) {
   .app-shell { align-items: stretch; }
   .sidebar,
   .sidebar.sidebar-open {
-    position: sticky;
+    position: fixed;
     top: 0;
-    left: auto;
-    bottom: auto;
-    z-index: 5;
-    width: 64px;
-    min-width: 64px;
-    max-width: 64px;
-    height: 100vh;
-    min-height: 100vh;
-    flex: 0 0 64px;
-    padding: 18px 7px 12px;
-    overflow: visible;
-    transform: none;
-    transition: none;
-    box-shadow: none;
+    left: 0;
+    bottom: 0;
+    z-index: 20;
+    width: min(290px, 86vw) !important;
+    min-width: min(290px, 86vw) !important;
+    max-width: min(290px, 86vw) !important;
+    height: 100dvh;
+    min-height: 100dvh;
+    flex: 0 0 min(290px, 86vw);
+    padding: 18px 14px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    box-shadow: 20px 0 50px #0005;
+    background: var(--sidebar-bg, #100d18);
   }
-  .mobile-scrim,
-  .mobile-menu,
-  .sidebar-close { display: none !important; }
-  .brand { justify-content: center; gap: 0; padding: 0; }
-  .brand > span { display: none; }
-  .brand-mark { width: 34px; height: 34px; flex: 0 0 34px; }
-  .workspace-switcher,
-  .nav-label,
-  .profile-copy { display: none; }
-  .primary-nav { margin-top: 30px; gap: 7px; }
-  .nav-item {
+  .sidebar.sidebar-open { transform: translateX(0); }
+  .mobile-scrim { display: block; position: fixed; inset: 0; z-index: 19; border: 0; background: #09060fc7; }
+  .mobile-menu { display: grid !important; }
+  .sidebar-close { display: grid !important; margin-left: auto; }
+  .sidebar-collapse-toggle, .topbar-sidebar-toggle { display: none !important; }
+  .brand { justify-content: flex-start; gap: 10px; padding: 0; }
+  .brand > span { display: inline !important; }
+  .brand-mark { width: 36px; height: 34px; flex: 0 0 36px; }
+  .workspace-switcher, .nav-label, .profile-copy { display: initial !important; }
+  .nav-label { display: block !important; }
+  .primary-nav { margin-top: 24px; gap: 7px; }
+  .nav-item, .app-shell.sidebar-collapsed .nav-item {
     position: relative;
-    justify-content: center;
-    gap: 0;
-    width: 48px;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 100%;
     min-height: 43px;
-    padding: 10px 0;
-    margin: 0 auto;
-    font-size: 0;
+    padding: 10px 12px;
+    margin: 0;
+    font-size: 13px;
   }
-  .nav-item > svg { width: 19px; height: 19px; flex: 0 0 19px; }
+  .nav-item > span, .app-shell.sidebar-collapsed .nav-item > span { display: inline !important; }
+  .nav-item > svg { width: 18px; height: 18px; flex: 0 0 18px; }
   .nav-item-active::before { left: -7px; }
   .sidebar-bottom { margin-top: auto; }
-  .profile-row { justify-content: center; padding: 14px 0 0; }
+  .profile-row { justify-content: flex-start; padding: 14px 0 0; }
   .profile-avatar { width: 34px; height: 34px; flex: 0 0 34px; }
-  .main-area { flex: 1 1 auto; min-width: 0; width: calc(100% - 64px); }
+  .main-area { flex: 1 1 auto; min-width: 0; width: 100%; }
   .topbar { min-width: 0; padding: 0 10px; }
   .topbar-left, .topbar-actions { min-width: 0; gap: 6px; }
   .breadcrumb { min-width: 0; }
