@@ -27,6 +27,8 @@ contract Probon {
 
     mapping(uint256 => Mandate) private _mandates;
     mapping(uint256 => mapping(address => bool)) public recipientAllowed;
+    // Owner-scoped agent pause: one owner can pause an agent across all of their mandates.
+    mapping(address => mapping(address => bool)) public agentPaused;
     mapping(uint256 => mapping(uint256 => uint256)) public dailySpent;
 
     event MandateCreated(uint256 indexed mandateId, address indexed owner, address indexed agent, uint256 maxPerTx, uint256 dailyLimit, uint64 expiresAt, uint256 initialFunding);
@@ -35,6 +37,7 @@ contract Probon {
     event PaymentExecuted(uint256 indexed mandateId, address indexed agent, address indexed recipient, uint256 amount, uint256 day);
     event MandateRevoked(uint256 indexed mandateId, uint256 refunded);
     event PauseChanged(bool paused);
+    event AgentPauseChanged(address indexed mandateOwner, address indexed agent, bool paused);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     error Unauthorized();
@@ -115,6 +118,7 @@ contract Probon {
     function executePayment(uint256 mandateId, address payable recipient, uint128 amount) external nonReentrant {
         if (paused) revert ContractPaused();
         Mandate storage m = _getMandate(mandateId);
+        if (agentPaused[m.owner][m.agent]) revert MandateInactive();
         if (!m.active) revert MandateInactive();
         if (block.timestamp >= m.expiresAt) revert MandateExpired();
         if (msg.sender != m.agent) revert Unauthorized();
@@ -147,6 +151,14 @@ contract Probon {
             if (!success) revert TransferFailed();
         }
         emit MandateRevoked(mandateId, refund);
+    }
+
+    /// @notice Pause or resume an agent across all mandates owned by the caller.
+    /// @dev The pause is scoped to msg.sender, so one mandate owner cannot affect another owner's mandates.
+    function setAgentPaused(address agent, bool value) external {
+        if (agent == address(0) || agent == msg.sender) revert InvalidAddress();
+        agentPaused[msg.sender][agent] = value;
+        emit AgentPauseChanged(msg.sender, agent, value);
     }
 
     function setPaused(bool value) external onlyOwner {
