@@ -311,49 +311,132 @@ export function AgentsWorkspace({ account, onNotice }: SharedProps) {
   </WorkspaceFrame>;
 }
 
+type LocalTransaction = { id: string; status: "Attempted" | "Pending" | "Executed" | "Failed"; createdAt: number; hash?: `0x${string}`; mandateId?: string; recipient?: string; amount?: string; detail?: string };
+const TX_STORAGE_KEY = "probon.transaction.activity.v1";
+
+function readLocalTransactions(): LocalTransaction[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(TX_STORAGE_KEY) || "[]");
+    return Array.isArray(value) ? value.filter((item) => item && typeof item.id === "string") : [];
+  } catch { return []; }
+}
+
+function saveLocalTransactions(rows: LocalTransaction[]) {
+  try { window.localStorage.setItem(TX_STORAGE_KEY, JSON.stringify(rows.slice(0, 100))); } catch { /* storage may be unavailable */ }
+}
+
 export function TransactionsWorkspace({ account, onNotice }: SharedProps) {
   const [payments, setPayments] = useState<ProbonPayment[]>([]);
+  const [localRows, setLocalRows] = useState<LocalTransaction[]>([]);
+  const [filter, setFilter] = useState<"All" | LocalTransaction["status"]>("All");
   const [loading, setLoading] = useState(false);
   const [mandates, setMandates] = useState<ProbonMandate[]>([]);
   const [mandateId, setMandateId] = useState("");
   const [recipient, setRecipient] = useState("");
   const [amount, setAmount] = useState("0.1");
   const [busy, setBusy] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [error, setError] = useState("");
-  const refresh = useCallback(async()=>{if(!PROBON_CONTRACT_ADDRESS){setPayments([]);return;}setLoading(true);try{setPayments(await loadPayments());if(account)setMandates(await loadMandates(account));}catch{setError("On-chain activity could not be loaded right now. Please try again shortly.");}finally{setLoading(false);}},[account]);
-  async function exportPayments() {
-    if (!payments.length) { setError("There are no loaded payment events to export."); return; }
-    setError("");
-    try {
-      const blockNumbers = [...new Set(payments.map(p => p.blockNumber.toString()))];
-      const timestamps = new Map<string, string>();
-      await Promise.all(blockNumbers.map(async number => {
-        try {
-          const block = await publicClient.getBlock({ blockNumber: BigInt(number) });
-          timestamps.set(number, new Date(Number(block.timestamp) * 1000).toISOString());
-        } catch { timestamps.set(number, ""); }
-      }));
-      const headers = ["timestamp_utc","network","chain_id","status","mandate_id","agent_wallet","recipient_wallet","amount_usdc","block_number","transaction_hash","arc_explorer_url"];
-      const rows = payments.map(p => [timestamps.get(p.blockNumber.toString()) || "", "Arc Mainnet", "5042", "Confirmed", p.mandateId.toString(), p.agent, p.recipient, formatNativeUsdc(p.amount, 18), p.blockNumber.toString(), p.transactionHash, explorerTx(p.transactionHash)]);
-      const csv = [headers, ...rows].map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(",")).join("\r\n");
-      const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }));
-      const link = document.createElement("a"); link.href = url; link.download = "probon-arc-mainnet-transactions.csv"; document.body.appendChild(link); link.click(); link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      onNotice(`Exported ${payments.length} confirmed Arc Mainnet transactions to CSV.`);
-    } catch {
-      setError("The transaction export could not be prepared. Refresh the transaction list and try again.");
-    }
-  }
-  useEffect(()=>{void refresh();},[refresh]);
-  async function pay(event:FormEvent){event.preventDefault();if(!account)return;setBusy(true);setError("");try{const hash=await executePaymentOnChain(account,BigInt(mandateId),recipient,amount);onNotice("Payment submitted. Waiting for confirmation…");await publicClient.waitForTransactionReceipt({hash});onNotice("Payment executed on Arc Mainnet: "+hash);await refresh();}catch{setError("The payment could not be completed. Check the wallet confirmation and try again.");}finally{setBusy(false);}}
-  return <WorkspaceFrame title="Transactions" subtitle="On-chain payments emitted by the Probon contract.">{!account?<WalletRequired/>:!PROBON_CONTRACT_ADDRESS?<ContractMissing/>:<>
-    {error&&<div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
-    <form className="mandate-form payment-form" onSubmit={pay}><div className="form-heading"><div><h3>Execute a policy-checked payment</h3><p>The connected wallet must be the agent assigned to the selected mandate.</p></div></div><div className="form-grid"><label>Mandate<select required value={mandateId} onChange={e=>setMandateId(e.target.value)}><option value="">Select mandate</option>{mandates.filter(m=>m.active).map(m=><option key={m.id.toString()} value={m.id.toString()}>#{m.id.toString()} · balance {formatNativeUsdc(m.balance)} USDC</option>)}</select></label><label>Recipient address<input required value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="0x…"/></label><label>Amount (USDC)<input required type="number" min="0.000000000000000001" step="any" value={amount} onChange={e=>setAmount(e.target.value)}/></label></div><div className="form-note"><ShieldCheck size={16}/><span>The contract checks the connected agent, recipient allowlist, expiry, per-payment cap, daily cap, and available mandate balance. A rejected payment reverts on-chain.</span></div><button className="primary-button" disabled={busy||mandates.filter(m=>m.active).length===0}>{busy?<LoaderCircle className="spin" size={16}/>:<ArrowUpRight size={16}/>} Submit payment</button></form>
-    <div className="workspace-toolbar"><span>Recent on-chain payments · up to 50 latest events</span><div className="toolbar-actions"><button className="subtle-button" onClick={exportPayments} disabled={payments.length===0}><Download size={14}/> Export CSV</button><button className="subtle-button" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={14} className={loading?"spin":""}/> Refresh</button></div></div>
-    {loading?<div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Loading on-chain events…</span></div>:payments.length===0?<div className="workspace-empty"><Wallet size={25}/><strong>No confirmed payments</strong><span>Real payment events will appear here after a transaction succeeds.</span></div>:<div className="payment-list">{payments.map(p=><article className="payment-row" key={p.transactionHash}><div className="mandate-icon"><ArrowUpRight size={17}/></div><div className="payment-main"><strong>{formatNativeUsdc(p.amount)} USDC · Mandate #{p.mandateId.toString()}</strong><span>To {short(p.recipient)} · Block {p.blockNumber.toString()}</span></div><a href={explorerTx(p.transactionHash)} target="_blank" rel="noreferrer">View tx <ExternalLink size={13}/></a></article>)}</div>}
-  </>}</WorkspaceFrame>;
-}
 
+  const persistRows = (rows: LocalTransaction[]) => { setLocalRows(rows); saveLocalTransactions(rows); };
+  const refresh = useCallback(async () => {
+    setLocalRows(readLocalTransactions());
+    if (!PROBON_CONTRACT_ADDRESS) { setPayments([]); return; }
+    setLoading(true);
+    try {
+      setPayments(await loadPayments());
+      if (account) setMandates(await loadMandates(account));
+      setError("");
+    } catch { setError("Arc Mainnet activity could not be loaded. Refresh and try again."); }
+    finally { setLoading(false); }
+  }, [account]);
+
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  async function exportPayments() {
+    const headers = ["timestamp_utc","network","chain_id","status","mandate_id","agent_wallet","recipient_wallet","amount_usdc","block_number","transaction_hash","arc_explorer_url"];
+    const blockNumbers = [...new Set(payments.map(p => p.blockNumber.toString()))];
+    const timestamps = new Map<string, string>();
+    await Promise.all(blockNumbers.map(async number => {
+      try { const block = await publicClient.getBlock({ blockNumber: BigInt(number) }); timestamps.set(number, new Date(Number(block.timestamp) * 1000).toISOString()); }
+      catch { timestamps.set(number, ""); }
+    }));
+    const confirmed = payments.map(p => [timestamps.get(p.blockNumber.toString()) || "", "Arc Mainnet", "5042", "Executed", p.mandateId.toString(), p.agent, p.recipient, formatNativeUsdc(p.amount, 18), p.blockNumber.toString(), p.transactionHash, explorerTx(p.transactionHash)]);
+    const local = localRows.map(row => [new Date(row.createdAt).toISOString(), "Arc Mainnet", "5042", row.status, row.mandateId || "", "", row.recipient || "", row.amount || "", "", row.hash || "", row.hash ? explorerTx(row.hash) : ""]);
+    const csv = [headers, ...confirmed, ...local].map(row => row.map(value => '"' + String(value).replace(/"/g, '""') + '"').join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a"); link.href = url; link.download = "probon-arc-mainnet-transactions.csv"; document.body.appendChild(link); link.click(); link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    onNotice("Exported confirmed payments and locally tracked attempts to CSV.");
+  }
+
+  async function pay(event: FormEvent) {
+    event.preventDefault();
+    if (!account || busy) return;
+    setBusy(true); setError("");
+    const rowId = `attempt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const base: LocalTransaction = { id: rowId, status: "Attempted", createdAt: Date.now(), mandateId, recipient, amount };
+    persistRows([base, ...readLocalTransactions()]);
+    try {
+      const hash = await executePaymentOnChain(account, BigInt(mandateId), recipient, amount);
+      const pending = { ...base, status: "Pending" as const, hash };
+      persistRows([pending, ...readLocalTransactions().filter(row => row.id !== rowId)]);
+      onNotice("Payment submitted. Waiting for Arc Mainnet confirmation: " + hash);
+      try {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status === "success") {
+          persistRows([{ ...pending, status: "Executed" }, ...readLocalTransactions().filter(row => row.id !== rowId)]);
+          onNotice("Payment executed on Arc Mainnet: " + hash);
+        } else {
+          persistRows([{ ...pending, status: "Failed", detail: "Transaction reverted on-chain" }, ...readLocalTransactions().filter(row => row.id !== rowId)]);
+          setError("Transaction reverted on-chain. Open the explorer record to inspect the failure.");
+        }
+      } catch {
+        setError("Transaction was submitted but its receipt is not available yet. It remains Pending; do not resubmit until checked.");
+      }
+      await refresh();
+    } catch (cause) {
+      const detail = cause instanceof Error ? cause.message : "Wallet rejected or RPC submission failed";
+      const latest = readLocalTransactions().find(row => row.id === rowId);
+      if (latest?.status === "Pending" && latest.hash) {
+        setError("The transaction has a hash but its final status is unknown. It remains Pending; check Arc Explorer before retrying.");
+      } else {
+        persistRows([{ ...base, status: "Failed", detail: detail.slice(0, 180) }, ...readLocalTransactions().filter(row => row.id !== rowId)]);
+        setError(/reject|denied|cancel/i.test(detail) ? "Wallet request was rejected or cancelled. Recorded as a failed attempt; no confirmed transaction hash is available." : "Payment submission failed before confirmation. Check the wallet and Arc Mainnet connection.");
+      }
+    } finally { setBusy(false); }
+  }
+
+  const executedRows: LocalTransaction[] = payments.map(p => ({ id: p.transactionHash, status: "Executed", createdAt: Number(p.blockNumber), hash: p.transactionHash, mandateId: p.mandateId.toString(), recipient: p.recipient, amount: formatNativeUsdc(p.amount) }));
+  const knownHashes = new Set(executedRows.map(row => row.hash));
+  const activity = [...localRows.filter(row => !row.hash || !knownHashes.has(row.hash)), ...executedRows]
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const counts = { All: activity.length, Executed: activity.filter(r => r.status === "Executed").length, Pending: activity.filter(r => r.status === "Pending").length, Failed: activity.filter(r => r.status === "Failed").length, Attempted: activity.filter(r => r.status === "Attempted").length };
+  const visible = filter === "All" ? activity : activity.filter(row => row.status === filter);
+
+  return <WorkspaceFrame title="Transactions" subtitle="A status-first activity log for Probon payment submissions on Arc Mainnet." action={<button className="primary-button" onClick={() => setShowPaymentForm(value => !value)}><ArrowUpRight size={15}/>{showPaymentForm ? "Close payment form" : "New payment"}</button>}>
+    {!account ? <WalletRequired/> : !PROBON_CONTRACT_ADDRESS ? <ContractMissing/> : <>
+      {error && <div className="workspace-error"><CircleAlert size={16}/>{error}</div>}
+      {showPaymentForm && <form className="mandate-form payment-form" onSubmit={pay}>
+        <div className="form-heading"><div><h3>Execute a policy-checked payment</h3><p>The connected wallet must be the agent assigned to the selected mandate.</p></div></div>
+        <div className="form-grid">
+          <label>Mandate<select required value={mandateId} onChange={e=>setMandateId(e.target.value)}><option value="">Select mandate</option>{mandates.filter(m=>m.active && m.balance > 0n).map(m=><option key={m.id.toString()} value={m.id.toString()}>#{m.id.toString()} · balance {formatNativeUsdc(m.balance)} USDC</option>)}</select></label>
+          <label>Recipient address<input required value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="0x…" autoComplete="off"/></label>
+          <label>Amount (USDC)<input required type="number" min="0.000000000000000001" step="any" value={amount} onChange={e=>setAmount(e.target.value)}/></label>
+        </div>
+        <div className="form-note"><ShieldCheck size={16}/><span>The contract enforces agent identity, recipient allowlist, expiry, per-payment cap, daily cap, and mandate balance. Invalid payments revert on-chain.</span></div>
+        <button className="primary-button" disabled={busy || mandates.filter(m=>m.active && m.balance > 0n).length===0}>{busy ? <LoaderCircle className="spin" size={16}/> : <ArrowUpRight size={16}/>} {busy ? "Checking transaction…" : "Submit payment"}</button>
+      </form>}
+      <div className="transaction-summary-grid">
+        {(["Executed","Failed","Pending","Attempted"] as const).map(status=><button key={status} className={"transaction-summary-card transaction-status-" + status.toLowerCase() + (filter===status ? " selected" : "")} onClick={()=>setFilter(filter===status ? "All" : status)}><span>{status}</span><strong>{counts[status]}</strong></button>)}
+      </div>
+      <div className="workspace-toolbar"><span>{activity.length} activity record{activity.length===1?"":"s"} · on-chain history plus this browser's tracked attempts</span><div className="toolbar-actions"><button className="subtle-button" onClick={()=>void exportPayments()} disabled={activity.length===0}><Download size={14}/> Export CSV</button><button className="subtle-button" onClick={()=>void refresh()} disabled={loading}><RefreshCw size={14} className={loading?"spin":""}/> Refresh</button></div></div>
+      <div className="transaction-filters"><button className={filter==="All"?"active":""} onClick={()=>setFilter("All")}>All <span>{counts.All}</span></button>{(["Executed","Failed","Pending","Attempted"] as const).map(status=><button key={status} className={filter===status?"active":""} onClick={()=>setFilter(status)}>{status} <span>{counts[status]}</span></button>)}</div>
+      {loading ? <div className="workspace-empty"><LoaderCircle className="spin" size={22}/><span>Loading Arc Mainnet activity…</span></div> : visible.length===0 ? <div className="workspace-empty"><Wallet size={25}/><strong>{filter==="All"?"No transaction activity yet":`No ${filter.toLowerCase()} transactions`}</strong><span>Submitted attempts are tracked in this browser. Confirmed executions are loaded from Probon's on-chain payment events.</span>{filter!=="All"&&<button className="subtle-button" onClick={()=>setFilter("All")}>Show all activity</button>}</div> : <div className="payment-list">{visible.map(row=><article className="payment-row transaction-activity-row" key={row.id}><div className="mandate-icon"><ArrowUpRight size={17}/></div><div className="payment-main"><strong>{row.amount ? `${row.amount} USDC · Mandate #${row.mandateId || "—"}` : `Payment ${row.mandateId ? "· Mandate #" + row.mandateId : "attempt"}`}</strong><span>{row.recipient ? `To ${short(row.recipient)} · ` : ""}{new Date(row.createdAt).toLocaleString()} {row.detail ? "· " + row.detail : ""}</span></div><span className={"transaction-status-pill transaction-status-" + row.status.toLowerCase()}>{row.status}</span>{row.hash ? <a href={explorerTx(row.hash)} target="_blank" rel="noreferrer" aria-label="Open transaction in Arc Explorer" title="Open in Arc Explorer">View tx <ExternalLink size={13}/></a> : <span className="transaction-no-hash">No transaction hash</span>}</article>)}</div>}
+      <p className="portfolio-caption">Failed and attempted submissions are stored only in this browser and do not sync across devices. A wallet rejection before broadcast has no transaction hash to open in Arc Explorer. Confirmed payment history comes from Arc Mainnet contract events.</p>
+    </>}
+  </WorkspaceFrame>;
+}
 
 export function PortfolioWorkspace({ account }: { account: Address | null }) {
   const [balance, setBalance] = useState<bigint | null>(null);
