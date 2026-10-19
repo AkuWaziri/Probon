@@ -281,7 +281,7 @@ export function AgentsWorkspace({ account, onNotice }: SharedProps) {
         })}</div>
         <div className="mandate-actions agent-identity-actions">
           <a className="subtle-button" href={explorerAddress(agent)} target="_blank" rel="noreferrer">View on Arc Explorer <ExternalLink size={13}/></a>
-          <button className={paused ? "outline-button" : "danger-button"} disabled={Boolean(busyAgent) || active.length === 0} onClick={() => void toggleAgentPause(agent, paused)}>
+          <button className={paused ? "outline-button" : "danger-button"} disabled={Boolean(busyAgent) || (active.length === 0 && !paused)} onClick={() => void toggleAgentPause(agent, paused)}>
             {busyAgent === agent.toLowerCase() ? <LoaderCircle className="spin" size={14}/> : <ShieldCheck size={14}/>}
             {busyAgent === agent.toLowerCase() ? "Confirming…" : paused ? "Resume agent" : "Pause agent"}
           </button>
