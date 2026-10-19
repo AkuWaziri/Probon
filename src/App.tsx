@@ -13,6 +13,13 @@ import {
 
 type NavItem = "Overview" | "Mandates" | "Agents" | "Transactions" | "Security";
 
+function getTimeBasedGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Mandates", icon: Fingerprint },
@@ -22,6 +29,7 @@ const navItems: { label: NavItem; icon: typeof LayoutDashboard }[] = [
 ];
 
 function App() {
+  const [greeting, setGreeting] = useState(getTimeBasedGreeting);
   const [active, setActive] = useState<NavItem>("Overview");
   const [walletAddress, setWalletAddress] = useState<Address | null>(null);
   const [nativeBalance, setNativeBalance] = useState<bigint | null>(null);
@@ -35,6 +43,12 @@ function App() {
   const [notice, setNotice] = useState("");
   const knownPaymentHashes = useRef<Set<string> | null>(null);
   const expiryAlertsSent = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const updateGreeting = () => setGreeting(getTimeBasedGreeting());
+    const timer = window.setInterval(updateGreeting, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const handleNav = (label: NavItem) => {
     setActive(label);
@@ -196,7 +210,7 @@ function App() {
             <>
               <section className="welcome-row">
                 <div>
-                  <h1>Good afternoon<span className="heading-period">.</span></h1>
+                  <h1>{greeting}<span className="heading-period">.</span></h1>
                   <p className="page-subtitle">Your agents are working. Your rules are in control.</p>
                 </div>
                 <button className="primary-button" onClick={() => handleNav("Mandates")}><Plus size={17} /> Create mandate</button>
