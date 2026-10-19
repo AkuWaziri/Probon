@@ -5,7 +5,7 @@ import { ARC_EXPLORER_URL, PROBON_CONTRACT_ADDRESS } from "../lib/arc";
 import {
   createMandateOnChain, executePaymentOnChain, formatNativeUsdc, getContractAddress, getNativeUsdcBalance,
   loadMandates, loadPayments, publicClient, revokeMandateOnChain,
-  fundMandateOnChain, getContractOwner, getContractPauseState, setEmergencyPause, getAgentPaused, setAgentPausedOnChain, type ProbonMandate, type ProbonPayment,
+  fundMandateOnChain, withdrawMandateFundsOnChain, getContractOwner, getContractPauseState, setEmergencyPause, getAgentPaused, setAgentPausedOnChain, type ProbonMandate, type ProbonPayment,
 } from "../lib/probonClient";
 
 type SharedProps = { account: Address | null; onNotice: (message: string) => void };
@@ -170,6 +170,25 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
     finally { setSubmitting(false); }
   }
 
+  async function withdraw(mandate: ProbonMandate) {
+    if (!account || mandate.balance <= 0n) return;
+    const recipient = window.prompt("Destination wallet address for funds withdrawn from mandate #" + mandate.id + ":");
+    if (recipient === null) return;
+    const amount = window.prompt("Amount of USDC to withdraw. Available: " + formatNativeUsdc(mandate.balance) + " USDC");
+    if (amount === null) return;
+    if (!window.confirm("Transfer " + amount + " USDC from mandate #" + mandate.id + " to " + recipient + "? This does not revoke the mandate.")) return;
+    setError(""); setSubmitting(true);
+    try {
+      const hash = await withdrawMandateFundsOnChain(account, mandate.id, recipient, amount);
+      onNotice("Mandate withdrawal submitted. Waiting for confirmation…");
+      await publicClient.waitForTransactionReceipt({ hash });
+      onNotice("Mandate funds transferred to the destination wallet. " + hash);
+      await refresh();
+    } catch (cause) {
+      setError(cause instanceof Error ? "Mandate withdrawal failed. " + cause.message : "Mandate withdrawal could not be completed. Check your wallet and try again.");
+    } finally { setSubmitting(false); }
+  }
+
   if (!account) return <WorkspaceFrame title="Mandates" subtitle="Create programmable spending permissions enforced by the Probon contract."><WalletRequired/></WorkspaceFrame>;
   return <WorkspaceFrame title="Mandates" subtitle="Each mandate sets the agent, allowed recipients, payment cap, daily cap, expiry, and funded balance." action={<button className="primary-button" onClick={() => setShowForm(!showForm)}><Plus size={16}/>{showForm ? "Close form" : "Create mandate"}</button>}>
     {!PROBON_CONTRACT_ADDRESS && <ContractMissing/>}
@@ -184,6 +203,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
         <label>Expires in (days)<input required type="number" min="1" max="365" step="1" value={expiryDays} onChange={e=>setExpiryDays(e.target.value)}/></label>
         <label>Initial funding (USDC)<input required type="number" min="0" step="any" value={initialFunding} onChange={e=>setInitialFunding(e.target.value)}/></label>
       </div>
+      <div className="form-note"><ShieldCheck size={16}/><span>A 1% creation fee is deducted from the initial funding and sent to 0x5Bce25397eEfbc76f6479e6838c00a5115dbEA4c. The remaining 99% becomes the mandate balance. Later top-ups are not charged this creation fee.</span></div>
       <div className="form-note"><ShieldCheck size={16}/><span>Only the selected agent can execute payments. Contract rules block unapproved recipients, expired mandates, payments above the per-payment cap, and daily-limit overruns. Funding is real mainnet USDC.</span></div>
       <button className="primary-button" type="submit" disabled={submitting || !PROBON_CONTRACT_ADDRESS}>{submitting ? <LoaderCircle className="spin" size={16}/> : <Plus size={16}/>} {pendingHash ? "Transaction submitted — checking status" : submitting ? "Confirming on Arc Mainnet…" : "Review & create mandate"}</button>
       {pendingHash && <div className="form-note"><CircleAlert size={16}/><span>Do not submit another mandate while this transaction is unresolved. <a href={explorerTx(pendingHash)} target="_blank" rel="noreferrer">View transaction</a> or <button type="button" className="subtle-button" disabled={submitting} onClick={() => void checkMandateConfirmation(pendingHash)}>Check confirmation</button></span></div>}
@@ -194,7 +214,7 @@ export function MandatesWorkspace({ account, onNotice }: SharedProps) {
         <div className="mandate-card-top"><div className="mandate-icon"><Fingerprint size={18}/></div><div className="mandate-title"><strong>Mandate #{m.id.toString()}</strong><span>{m.active ? (BigInt(Math.floor(Date.now()/1000)) >= m.expiresAt ? "Expired" : "Active") : "Revoked"}</span></div><span className={"mandate-badge " + (m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "badge-active" : "badge-off")}>{m.active && BigInt(Math.floor(Date.now()/1000)) < m.expiresAt ? "ENFORCED" : "INACTIVE"}</span></div>
         <div className="mandate-stats"><div><span>Available balance</span><strong>{formatNativeUsdc(m.balance)} USDC</strong></div><div><span>Max per payment</span><strong>{formatNativeUsdc(m.maxPerTx)} USDC</strong></div><div><span>Daily limit</span><strong>{formatNativeUsdc(m.dailyLimit)} USDC</strong></div><div><span>Total spent</span><strong>{formatNativeUsdc(m.totalSpent)} USDC</strong></div></div><div className="spend-progress"><div className="spend-progress-label"><span>Mandate funding used</span><strong>{m.totalSpent + m.balance > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / (m.totalSpent + m.balance)) / 100).toFixed(1) : "0.0"}%</strong></div><div className="spend-progress-track" role="progressbar" aria-label={"Mandate " + m.id.toString() + " funding used"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={m.totalSpent + m.balance > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / (m.totalSpent + m.balance)) / 100) : 0}><span style={{width: (m.totalSpent + m.balance > 0n ? Math.min(100, Number((m.totalSpent * 10000n) / (m.totalSpent + m.balance)) / 100) : 0) + "%"}} /></div><small>Based on total recorded spend and current mandate balance; this is not a daily-limit meter.</small></div>
         <div className="mandate-addresses"><div><span>Agent</span><a href={explorerAddress(m.agent)} target="_blank" rel="noreferrer">{short(m.agent)} <ExternalLink size={12}/></a></div><div><span>Allowed recipients ({m.recipients.length})</span><div className="recipient-chips">{m.recipients.map(r=><a key={r} href={explorerAddress(r)} target="_blank" rel="noreferrer">{short(r)}</a>)}</div></div><div><span>Expiry</span><strong>{new Date(Number(m.expiresAt)*1000).toLocaleString()}</strong></div></div>
-        <div className="mandate-actions"><a className="subtle-button" href={explorerAddress(getContractAddress())} target="_blank" rel="noreferrer">View contract <ArrowUpRight size={14}/></a>{m.active && <><button className="outline-button" disabled={submitting} onClick={() => void fund(m)}><Plus size={14}/> Fund</button><button className="danger-button" disabled={submitting} onClick={() => void revoke(m)}><X size={14}/> Revoke & refund</button></>}</div>
+        <div className="mandate-actions"><a className="subtle-button" href={explorerAddress(getContractAddress())} target="_blank" rel="noreferrer">View contract <ArrowUpRight size={14}/></a>{m.balance > 0n && <button className="outline-button" disabled={submitting} onClick={() => void withdraw(m)}><Wallet size={14}/> Withdraw</button>}{m.active && <><button className="outline-button" disabled={submitting} onClick={() => void fund(m)}><Plus size={14}/> Fund</button><button className="danger-button" disabled={submitting} onClick={() => void revoke(m)}><X size={14}/> Revoke & refund</button></>}</div>
       </article>)}</div>}
   </WorkspaceFrame>;
 }
