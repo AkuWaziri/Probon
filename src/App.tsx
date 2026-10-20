@@ -7,6 +7,8 @@ import {
   Sparkles, Wallet, X, Video, Send, TrendingUp, Users
 } from "lucide-react";
 
+declare global { interface Window { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } } }
+
 type Channel = "X / Twitter" | "TikTok" | "Telegram" | "WhatsApp" | "Video" | "Blog" | "Medium" | "Other";
 type Campaign = {
   id: string; brand: string; initials: string; category: string; title: string; description: string;
@@ -41,7 +43,9 @@ function BrandMark({ name, initials, accent="lavender", logo }: {name:string; in
   return <div className={`brand-mark ${accent} ${logo?"has-logo":""}`} aria-label={name}>{logo?<img src={logo} alt={`${name} logo`}/>:initials}</div>;
 }
 function App() {
-  const [page, setPage] = useState("Explore");\n  const [walletAddress, setWalletAddress] = useState(() => { try { return localStorage.getItem("probon-wallet-address") || ""; } catch { return ""; } });\n  const [walletChainId, setWalletChainId] = useState(() => { try { return localStorage.getItem("probon-wallet-chain") || ""; } catch { return ""; } });
+  const [page, setPage] = useState("Explore");
+  const [walletAddress, setWalletAddress] = useState(() => { try { return localStorage.getItem("probon-wallet-address") || ""; } catch { return ""; } });
+  const [walletChainId, setWalletChainId] = useState(() => { try { return localStorage.getItem("probon-wallet-chain") || ""; } catch { return ""; } });
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
     try { const saved = localStorage.getItem("probon-campaigns"); return saved ? [...JSON.parse(saved), ...initialCampaigns] : initialCampaigns; } catch { return initialCampaigns; }
   });
@@ -77,7 +81,23 @@ function App() {
   }, [campaigns, page, query, channel, category, sort, participations]);
   const activeCount = campaigns.filter(c=>c.status==="Active").length;
   const setPageTo = (label:string) => { setMobileOpen(false); if(label==="Create campaign") { setShowCreate(true); return; } setPage(label); };
+  const connectWallet = async () => {
+    if(!window.ethereum) { setNotice("No browser wallet detected. Install an Arc-compatible wallet and try again."); return; }
+    try {
+      const accounts = await window.ethereum.request({method:"eth_requestAccounts"});
+      const chain = await window.ethereum.request({method:"eth_chainId"});
+      const account = Array.isArray(accounts) ? accounts[0] : "";
+      if(typeof account!=="string" || !account) { setNotice("Wallet did not return an account."); return; }
+      const chainId = typeof chain==="string" ? chain.toLowerCase() : "";
+      setWalletAddress(account); setWalletChainId(chainId);
+      localStorage.setItem("probon-wallet-address",account); localStorage.setItem("probon-wallet-chain",chainId);
+      if(chainId!=="0x13b2") setNotice("Wallet connected, but it is not on Arc Mainnet (Chain ID 5042). Switch networks before joining campaigns.");
+      else setNotice("Arc wallet connected. Your address will be recorded when you join a campaign.");
+    } catch { setNotice("Wallet connection was cancelled or failed."); }
+  };
   const joinCampaign = (c:Campaign) => {
+    if(!walletAddress) { setNotice("Connect your Arc wallet first. Your wallet address is recorded as the participant identity."); return; }
+    if(walletChainId!=="0x13b2") { setNotice("Switch your wallet to Arc Mainnet (Chain ID 5042) before joining."); return; }
     if(c.status!=="Active") { setNotice("This campaign is not accepting participants."); return; }
     if(new Date(c.deadline+" 23:59:59").getTime() < Date.now()) { setNotice("The deadline has passed. This campaign is closed."); return; }
     if(c.joined>=c.slots) { setNotice("All creator slots are filled. This campaign is closed to new participants."); return; }
