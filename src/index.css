@@ -65,3 +65,12 @@
 .promo-post-card>small{display:block;margin-top:9px;font-size:10px;line-height:1.6;color:#888197}
 .participation-card{flex-wrap:wrap}
 @media(max-width:680px){.promo-post-head{align-items:flex-start;flex-direction:column}.promo-post-card{width:100%}}
+
+
+/* Separate URLs for the Probon promotional post and the campaign deliverable */
+.submission-field-group{display:grid;gap:7px;margin:0 0 16px}
+.submission-field-group label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;font-weight:700;color:#514a62}
+.submission-field-group label span{font-size:9px;letter-spacing:.5px;color:#7655e8}
+.submission-full-input{width:100%;height:42px;padding:0 11px;border:1px solid #e7e2ee;border-radius:8px;background:#fff;font-size:12px;color:#393345}
+.submission-full-input:focus{outline:2px solid #d9ceff;border-color:#9878ef}
+.submission-field-group .form-hint{margin:0}
