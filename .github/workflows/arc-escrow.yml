@@ -1,0 +1,106 @@
+name: Probon Arc escrow
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+      - "test/**"
+      - "foundry.toml"
+      - ".github/workflows/arc-escrow.yml"
+  pull_request:
+    paths:
+      - "contracts/**"
+      - "test/**"
+      - "foundry.toml"
+      - ".github/workflows/arc-escrow.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_mainnet:
+        description: 'Type DEPLOY to deploy the tested contract to Arc Mainnet'
+        required: true
+        type: string
+      fee_recipient:
+        description: 'Platform fee recipient wallet'
+        required: true
+        default: '0x5Bce25397eEfbc76f6479e6838c00a5115dbEA4c'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probon-arc-escrow-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Compile and test escrow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Build contracts
+        run: forge build --sizes
+      - name: Run contract tests
+        run: forge test -vvv
+
+  deploy:
+    name: Deploy to Arc Mainnet
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy_mainnet == 'DEPLOY'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: arc-mainnet
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Validate deployment settings
+        env:
+          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.ARC_DEPLOYER_PRIVATE_KEY }}
+          FEE_RECIPIENT: ${{ inputs.fee_recipient }}
+        run: |
+          set -euo pipefail
+          test -n "$ARC_RPC_URL" || (echo "::error::Add ARC_RPC_URL as an Actions secret"; exit 1)
+          test -n "$DEPLOYER_PRIVATE_KEY" || (echo "::error::Add ARC_DEPLOYER_PRIVATE_KEY as an Actions secret"; exit 1)
+          [[ "$FEE_RECIPIENT" =~ ^0x[0-9a-fA-F]{40}$ ]] || (echo "::error::Fee recipient must be a valid EVM address"; exit 1)
+      - name: Deploy escrow
+        id: deploy
+        env:
+          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.ARC_DEPLOYER_PRIVATE_KEY }}
+          FEE_RECIPIENT: ${{ inputs.fee_recipient }}
+        run: |
+          set -euo pipefail
+          forge create contracts/ProbonEscrow.sol:ProbonEscrow \
+            --rpc-url "$ARC_RPC_URL" \
+            --private-key "$DEPLOYER_PRIVATE_KEY" \
+            --broadcast \
+            --constructor-args "$FEE_RECIPIENT" \
+            --json | tee deployment.json
+          ADDRESS=$(jq -r '.deployedTo // .deployed_to // empty' deployment.json)
+          TX=$(jq -r '.transactionHash // .transaction_hash // empty' deployment.json)
+          if [[ ! "$ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Could not parse deployed contract address; inspect deployment artifact."
+            cat deployment.json
+            exit 1
+          fi
+          echo "contract_address=$ADDRESS" >> "$GITHUB_OUTPUT"
+          echo "transaction_hash=$TX" >> "$GITHUB_OUTPUT"
+          echo "## Probon Arc Mainnet deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contract: `$ADDRESS`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Transaction: `$TX`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Chain ID: 5042" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Fee recipient: `$FEE_RECIPIENT`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Save deployment details
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probon-arc-deployment
+          path: deployment.json
+          if-no-files-found: ignore
+          retention-days: 90
