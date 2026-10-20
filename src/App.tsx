@@ -32,8 +32,8 @@ const navItems = [
   { label:"Earnings", icon:TrendingUp }, { label:"Wallet", icon:Wallet }
 ];
 const channelIcons: Record<string, typeof Globe2> = {
-  "X / Twitter": Globe2, TikTok: Youtube, Telegram: Send, WhatsApp: MessageCircle,
-  Video: Youtube, Blog: BookOpen, Medium: BookOpen, Other: Globe2
+  "X / Twitter": Globe2, TikTok: Video, Telegram: Send, WhatsApp: MessageCircle,
+  Video: Video, Blog: BookOpen, Medium: BookOpen, Other: Globe2
 };
 const money = (n:number) => "$" + n.toLocaleString("en-US");
 function BrandMark({ name, initials, accent="lavender" }: {name:string; initials:string; accent?:string}) {
