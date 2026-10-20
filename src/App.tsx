@@ -4,7 +4,7 @@ import {
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
   DollarSign, ExternalLink, FileCheck2, Filter, Globe2, LayoutDashboard,
   Menu, MessageCircle, MoreHorizontal, Plus, Search, Settings2, ShieldCheck,
-  Wallet, X, Video, Send, TrendingUp, Users
+  Wallet, X, Video, Send, TrendingUp, Users, Moon, Sun
 } from "lucide-react";
 
 declare global { interface Window { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown>; on?: (event: string, handler: (...args: unknown[]) => void) => void; removeListener?: (event: string, handler: (...args: unknown[]) => void) => void } } }
@@ -88,6 +88,16 @@ function App() {
   const [submissionPromoLink, setSubmissionPromoLink] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try { return localStorage.getItem("probon-theme") === "dark" ? "dark" : "light"; }
+    catch { return "light"; }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    try { localStorage.setItem("probon-theme", theme); } catch { /* storage may be unavailable */ }
+  }, [theme]);
+  const toggleTheme = () => setTheme(current => current === "light" ? "dark" : "light");
   const [showFilters, setShowFilters] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(() => { try { return { email:"", telegram:"", slotsFilled:true, rewardsDistributed:true, ...JSON.parse(localStorage.getItem("probon-notification-prefs") || "{}") }; } catch { return {email:"",telegram:"",slotsFilled:true,rewardsDistributed:true}; } });
@@ -227,7 +237,7 @@ function App() {
     </aside>
     {mobileOpen&&<button className="mobile-scrim" onClick={()=>setMobileOpen(false)} aria-label="Close menu"/>}
     <main className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(v=>!v)} aria-label={mobileOpen?"Close menu":"Open menu"}>{mobileOpen?<X size={22}/>:<Menu size={22}/>}</button><button className="brand-lockup mobile-topbar-brand" onClick={()=>setPageTo("Explore")} aria-label="Probon home"><span className="brand-symbol">p<span>.</span></span><span className="brand-name">probon</span></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div><div className="top-actions"><span className="network-pill"><span className="network-dot"/><span className="network-label-desktop">Arc network</span><span className="network-label-mobile"><strong>Arc.</strong> Network</span></span><button className="icon-button" onClick={()=>setNotice("You\u0027re all caught up.")} aria-label="Notifications"><Bell size={18}/><i/></button><button className={`wallet-button ${walletAddress?"wallet-connected":""}`} onClick={walletAddress?disconnectWallet:connectWallet} title={walletAddress?"Disconnect wallet":"Connect wallet"} aria-label={walletAddress?"Disconnect wallet":"Connect wallet"}><Wallet size={16}/>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Connect wallet"}{walletAddress&&<span className="wallet-disconnect-label">Disconnect</span>}</button></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(v=>!v)} aria-label={mobileOpen?"Close menu":"Open menu"}>{mobileOpen?<X size={22}/>:<Menu size={22}/>}</button><button className="brand-lockup mobile-topbar-brand" onClick={()=>setPageTo("Explore")} aria-label="Probon home"><span className="brand-symbol">p<span>.</span></span><span className="brand-name">probon</span></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div><div className="top-actions"><button className="icon-button theme-toggle" onClick={toggleTheme} aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"} title={theme === "light" ? "Dark mode" : "Light mode"}>{theme === "light" ? <Moon size={17}/> : <Sun size={17}/>}</button><span className="network-pill"><span className="network-dot"/><span className="network-label-desktop">Arc network</span><span className="network-label-mobile"><strong>Arc.</strong> Network</span></span><button className="icon-button" onClick={()=>setNotice("You\u0027re all caught up.")} aria-label="Notifications"><Bell size={18}/><i/></button><button className={`wallet-button ${walletAddress?"wallet-connected":""}`} onClick={walletAddress?disconnectWallet:connectWallet} title={walletAddress?"Disconnect wallet":"Connect wallet"} aria-label={walletAddress?"Disconnect wallet":"Connect wallet"}><Wallet size={16}/>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Connect wallet"}{walletAddress&&<span className="wallet-disconnect-label">Disconnect</span>}</button></div></header>
       <div className="page-content">
         {page==="Explore" ? <>
           <section className="welcome-row"><div><h1>Good work deserves<br className="desktop-break"/> <span>good rewards.</span></h1><p className="welcome-copy">Discover paid campaigns from brands. Create something valuable, share your work, get rewarded.</p><div className="hero-actions"><button className="primary-button" onClick={()=>setShowCreate(true)}><Plus size={17}/> Create a campaign</button></div></div><div className="hero-art" aria-hidden="true"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-core"><span>p.</span></div><div className="float-card float-top"><span className="float-check"><Check size={13}/></span><span><b>Work approved</b><small>Reward unlocked</small></span></div><div className="float-card float-bottom"><div className="tiny-avatar">B</div><span><b>New opportunity</b><small>Up to $120 per task</small></span></div><div className="art-star star-one">✳</div><div className="art-star star-two">✳</div></div></section>
