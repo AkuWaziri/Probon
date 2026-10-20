@@ -60,7 +60,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
       - name: Validate deployment settings
         env:
-          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
+          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL || 'https://rpc.mainnet.arc.io' }}
           DEPLOYER_PRIVATE_KEY: ${{ secrets.ARC_DEPLOYER_PRIVATE_KEY }}
           FEE_RECIPIENT: ${{ inputs.fee_recipient }}
         run: |
@@ -78,7 +78,7 @@ jobs:
       - name: Deploy escrow
         id: deploy
         env:
-          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL }}
+          ARC_RPC_URL: ${{ secrets.ARC_RPC_URL || 'https://rpc.mainnet.arc.io' }}
           DEPLOYER_PRIVATE_KEY: ${{ secrets.ARC_DEPLOYER_PRIVATE_KEY }}
           FEE_RECIPIENT: ${{ inputs.fee_recipient }}
         run: |
