@@ -49,7 +49,6 @@ const buildParticipantPost = (c:Campaign, wallet:string) => {
     `Trying Probon: a campaign marketplace where brands can publish promotion tasks and creators can take on work with clear terms and rewards. I’m participating in “${c.title}” by ${c.brand}. If you create content, write, or build communities, explore Probon and see what fits.`
   ];
   const core = angles[seed % angles.length];
-  const suffix = wallet ? wallet.slice(-4).toLowerCase() : String(seed).slice(-4);
   const platformNote = c.channel === "TikTok"
     ? " Sharing this here because short-form creators deserve clear briefs and transparent rewards."
     : c.channel === "Telegram"
