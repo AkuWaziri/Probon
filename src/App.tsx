@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
-  ArrowDownLeft, ArrowRight, ArrowUpRight, BadgeCheck, Bell, BookOpen,
+  ArrowRight, ArrowUpRight, BadgeCheck, Bell, BookOpen,
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
-  Copy, DollarSign, ExternalLink, FileCheck2, Filter, Globe2, LayoutDashboard,
+  DollarSign, ExternalLink, FileCheck2, Filter, Globe2, LayoutDashboard,
   Menu, MessageCircle, MoreHorizontal, Plus, Search, Settings2, ShieldCheck,
-  Sparkles, Wallet, X, Youtube, Instagram, Send, TrendingUp, Users, Zap
+  Sparkles, Wallet, X, Youtube, Send, TrendingUp, Users
 } from "lucide-react";
 
 type Channel = "X / Twitter" | "TikTok" | "Telegram" | "WhatsApp" | "Video" | "Blog" | "Medium" | "Other";
@@ -90,7 +90,7 @@ function App() {
     setParticipations(ps=>ps.map(x=>x.campaignId===selected.id?{...x,link:submissionLink,status:"Submitted"}:x));
     setSelected(null); setSubmissionLink(""); setNotice("Submission recorded. This link is locked and cannot be replaced, even if the review is rejected.");
   };
-  const createCampaign = (e:React.FormEvent) => {
+  const createCampaign = (e:FormEvent) => {
     e.preventDefault();
     const reward=Number(createForm.reward), slots=Number(createForm.slots);
     if(!createForm.brand.trim() || !createForm.title.trim() || !Number.isFinite(reward) || reward<=0 || !Number.isInteger(slots) || slots<1) { setNotice("Complete all required fields with a valid reward and number of slots."); return; }
