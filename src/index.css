@@ -53,3 +53,15 @@
 .campaign-notify-box>strong,.campaign-notify-box>p{grid-column:1/-1}
 .campaign-notify-box>p{margin-top:-6px}
 @media(max-width:680px){.notification-settings-head{align-items:flex-start;flex-direction:column}.notification-form{grid-template-columns:1fr}.notification-disclaimer{grid-column:auto}.campaign-notify-box{grid-template-columns:1fr}.campaign-notify-box>strong,.campaign-notify-box>p{grid-column:auto}}
+
+
+/* Participant-specific Probon promotional post */
+.promo-post-card{grid-column:1/-1;margin-top:8px;padding:14px;border:1px solid #e6def7;border-radius:11px;background:#faf8ff}
+.promo-post-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
+.promo-post-head strong{font-size:12px;color:#312747}
+.promo-post-head span{font-size:10px;font-weight:700;color:#7655e8;background:#eee8ff;border-radius:999px;padding:5px 8px}
+.promo-post-card>p{margin:0 0 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.7;color:#5c566b}
+.promo-copy-button{display:inline-flex;align-items:center;gap:7px}
+.promo-post-card>small{display:block;margin-top:9px;font-size:10px;line-height:1.6;color:#888197}
+.participation-card{flex-wrap:wrap}
+@media(max-width:680px){.promo-post-head{align-items:flex-start;flex-direction:column}.promo-post-card{width:100%}}
