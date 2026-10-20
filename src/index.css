@@ -136,3 +136,12 @@
   .join-post-modal .modal-actions{flex-direction:column}
   .join-post-modal .modal-actions button{width:100%;justify-content:center}
 }
+
+
+/* Connected wallet action makes disconnect available without opening a second menu */
+.wallet-button.wallet-connected{gap:7px}
+.wallet-disconnect-label{margin-left:2px;padding-left:8px;border-left:1px solid currentColor;font-size:10px;opacity:.75}
+@media(max-width:680px){
+  .wallet-button.wallet-connected{width:auto;min-width:34px;max-width:150px;flex:0 1 auto;padding:0 8px;gap:5px;font-size:10px}
+  .wallet-button.wallet-connected .wallet-disconnect-label{display:none}
+}
