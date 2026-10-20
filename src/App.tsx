@@ -97,6 +97,7 @@ function App() {
   useEffect(() => { localStorage.setItem("probon-notification-prefs", JSON.stringify(notificationPrefs)); }, [notificationPrefs]);
   const myParticipations = participations.filter(p => Boolean(walletAddress) && p.walletAddress?.toLowerCase() === walletAddress.toLowerCase());
   const joinedIds = new Set(myParticipations.map(p => p.campaignId));
+  const ownsCampaign = (c: Campaign) => Boolean(walletAddress && c.creatorWallet && c.creatorWallet.toLowerCase() === walletAddress.toLowerCase());
   const filtered = useMemo(() => {
     let list = campaigns.filter(c => (page === "My campaigns" ? ownsCampaign(c) : page === "My participation" ? joinedIds.has(c.id) : true));
     if (page === "Explore") list = list.filter(c => !ownsCampaign(c));
@@ -108,7 +109,6 @@ function App() {
     return list;
   }, [campaigns, page, query, channel, category, sort, participations, walletAddress]);
   const activeCount = campaigns.filter(c=>c.status==="Active").length;
-  const ownsCampaign = (c: Campaign) => Boolean(walletAddress && c.creatorWallet && c.creatorWallet.toLowerCase() === walletAddress.toLowerCase());
   const setPageTo = (label:string) => { setMobileOpen(false); if(label==="Create campaign") { setShowCreate(true); return; } setPage(label); };
   const disconnectWallet = () => {
     setWalletAddress("");
