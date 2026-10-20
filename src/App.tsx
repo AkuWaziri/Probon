@@ -4,7 +4,7 @@ import {
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
   DollarSign, ExternalLink, FileCheck2, Filter, Globe2, LayoutDashboard,
   Menu, MessageCircle, MoreHorizontal, Plus, Search, Settings2, ShieldCheck,
-  Sparkles, Wallet, X, Youtube, Send, TrendingUp, Users
+  Sparkles, Wallet, X, Video, Send, TrendingUp, Users
 } from "lucide-react";
 
 type Channel = "X / Twitter" | "TikTok" | "Telegram" | "WhatsApp" | "Video" | "Blog" | "Medium" | "Other";
