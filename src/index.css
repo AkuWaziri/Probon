@@ -74,3 +74,21 @@
 .submission-full-input{width:100%;height:42px;padding:0 11px;border:1px solid #e7e2ee;border-radius:8px;background:#fff;font-size:12px;color:#393345}
 .submission-full-input:focus{outline:2px solid #d9ceff;border-color:#9878ef}
 .submission-field-group .form-hint{margin:0}
+
+
+/* Keep Probon and Arc Network branding visible in the mobile navbar without opening the menu */
+.mobile-topbar-brand{display:none}
+.network-label-mobile{display:none}
+@media(max-width:680px){
+  .mobile-topbar-brand{display:flex;align-items:center;gap:6px;padding:0;width:auto;flex-shrink:0}
+  .mobile-topbar-brand .brand-symbol{width:27px;height:27px;border-radius:8px;font-size:19px}
+  .mobile-topbar-brand .brand-name{font-size:16px;letter-spacing:-.8px}
+  .breadcrumbs{display:none}
+  .topbar{justify-content:flex-start;gap:9px;padding:0 10px}
+  .top-actions{margin-left:auto;gap:7px;flex-shrink:0}
+  .network-pill{display:flex;gap:5px;padding:6px 8px;font-size:10px;white-space:nowrap}
+  .network-label-desktop{display:none}
+  .network-label-mobile{display:inline}
+  .top-actions .icon-button{display:none}
+  .wallet-button{width:34px;height:34px;flex:0 0 34px}
+}
