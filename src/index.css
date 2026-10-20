@@ -181,3 +181,15 @@
   .nav-item.selected{box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 4px 12px rgba(101,72,190,.1)}
   .stat-card:hover,.campaign-card:hover{transform:none}
 }
+
+
+/* Footer social links and external support destination */
+.muted-nav{text-decoration:none}
+.support-link-icon{margin-left:auto;opacity:.55;flex-shrink:0}
+.footer-socials{display:flex;align-items:center;gap:8px;margin-left:auto}
+.footer-social-link{display:grid;place-items:center;width:31px;height:31px;border:1px solid rgba(226,219,241,.9);border-radius:9px;background:rgba(255,255,255,.78);color:#706783;box-shadow:inset 0 1px 0 rgba(255,255,255,.95),0 3px 10px rgba(40,27,74,.04);transition:color .18s ease,border-color .18s ease,background .18s ease,transform .18s ease}
+.footer-social-link svg{display:block;width:15px;height:15px}
+.footer-social-link:hover{color:#7655e8;border-color:#d8ccff;background:#f6f2ff;transform:translateY(-1px)}
+.telegram-social-link:hover{color:#229ed9;border-color:#ccecfb;background:#f1faff}
+.footer button{margin-left:0}
+@media(max-width:680px){.footer{align-items:center}.footer-socials{margin-left:auto}.footer button{margin-left:0}}
