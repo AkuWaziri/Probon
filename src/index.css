@@ -8,3 +8,30 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 
 .review-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#393345;margin:0 0 11px}.review-heading span{font-size:9px;font-weight:600;color:#7a62d6;background:#f0ebff;border-radius:20px;padding:5px 8px}.review-submission{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid #f0edf5}.review-submission>div:first-child{display:grid;gap:7px;min-width:0}.review-submission strong{font-size:11px;color:#4a4358}.review-submission a{display:flex;align-items:center;gap:4px;max-width:100%;overflow-wrap:anywhere;color:#7050d9;font-size:10px;text-decoration:none}.review-actions{display:flex;gap:6px;flex-shrink:0}.review-actions button{border:1px solid #dcefe5;background:#eef9f3;color:#16845b;border-radius:7px;padding:7px 9px;font-size:10px;font-weight:700}.review-actions button+button{border-color:#f0dfe4;background:#fff5f6;color:#b24c62}.review-submission .form-hint{margin:0;max-width:170px}
+
+/* Brand image upload in campaign creation */
+.brand-upload-field{grid-column:1/-1;display:grid;gap:8px;min-width:0;padding:13px;border:1px dashed #dcd4ee;border-radius:10px;background:#fcfbff}
+.field-label{display:flex;align-items:center;gap:8px;color:#514a62;font-size:11px;font-weight:700}
+.field-label small{padding:3px 6px;border-radius:5px;background:#eee8ff;color:#7859dc;font-size:8px;letter-spacing:.5px}
+.brand-upload-row{display:flex;align-items:center;gap:12px;min-width:0}
+.brand-upload-preview,.brand-upload-placeholder{width:52px;height:52px;flex:0 0 52px;border-radius:50%;object-fit:cover;border:1px solid #e6e0f0}
+.brand-upload-placeholder{display:grid;place-items:center;background:#f0ebff;color:#8264de}
+.brand-upload-copy{display:grid;gap:5px;min-width:0;flex:1}
+.brand-upload-copy strong{font-size:11px;color:#3d364c}
+.brand-upload-copy>span,.upload-help{font-size:9px;line-height:1.5;color:#918a9f}
+.upload-logo-button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:max-content;padding:7px 10px;border:1px solid #ded3ff;border-radius:7px;background:#f4f0ff;color:#6d4bd8;font-size:10px;font-weight:700;cursor:pointer}
+.upload-logo-button input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.remove-logo-button{align-self:center;border:0;background:transparent;color:#9a5366;font-size:10px;font-weight:600}
+.brand-mark.has-logo{overflow:hidden;padding:0;background:#fff;border:1px solid #eee9f5}
+.brand-mark.has-logo img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
+/* Each campaign gets a restrained category tint so cards are easy to distinguish */
+.campaign-card{position:relative;overflow:hidden}
+.campaign-card:before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:#a58aef}
+.campaign-lavender{background:#fdfbff;border-color:#e7defd}.campaign-lavender:before{background:#9878ef}
+.campaign-rose{background:#fffafb;border-color:#f5dce7}.campaign-rose:before{background:#e78aaf}
+.campaign-blue{background:#f9fbff;border-color:#dce7fc}.campaign-blue:before{background:#7fa4ef}
+.campaign-mint{background:#f8fdfa;border-color:#d8f0e4}.campaign-mint:before{background:#64c69a}
+.campaign-amber{background:#fffdf8;border-color:#f2e5c9}.campaign-amber:before{background:#e9b65e}
+.campaign-sky{background:#f8fcff;border-color:#d8edf9}.campaign-sky:before{background:#66bce9}
+.campaign-peach{background:#fffaf7;border-color:#f4e0d4}.campaign-peach:before{background:#eaa07c}
+@media(max-width:680px){.brand-upload-field{grid-column:auto}.brand-upload-row{gap:9px}.brand-upload-preview,.brand-upload-placeholder{width:46px;height:46px;flex-basis:46px}.remove-logo-button{font-size:9px}}
