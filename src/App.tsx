@@ -61,7 +61,8 @@ const buildParticipantPost = (c:Campaign, wallet:string) => {
     : c.channel === "Blog" || c.channel === "Medium"
     ? " The key idea: make creator campaigns easier to discover, understand, complete, and get rewarded for."
     : " If this sounds useful, check out Probon and find a campaign that matches your skills.";
-  return `${core}${platformNote}\n\n#Probon #CreatorEconomy #CreatorCampaigns\nParticipant ref: ${suffix}`;
+  const closing = ["Probon makes the campaign path easy to follow.","Clear brief. Real work. A public link for review.","More clarity for brands and creators.","A simpler route from campaign brief to creator reward."][seed % 4];
+  return `${core}${platformNote}\n\n${closing}\n\n#Probon #CreatorEconomy #CreatorCampaigns`;
 };
 function BrandMark({ name, initials, accent="lavender", logo }: {name:string; initials:string; accent?:string; logo?:string}) {
   return <div className={`brand-mark ${accent} ${logo?"has-logo":""}`} aria-label={name}>{logo?<img src={logo} alt={`${name} logo`}/>:initials}</div>;
