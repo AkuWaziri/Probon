@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import {
   ArrowRight, ArrowUpRight, BadgeCheck, Bell, BookOpen,
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
@@ -110,14 +111,21 @@ function App() {
   }, [campaigns, page, query, channel, category, sort, participations, walletAddress]);
   const activeCount = campaigns.filter(c=>c.status==="Active").length;
   const setPageTo = (label:string) => { setMobileOpen(false); if(label==="Create campaign") { setShowCreate(true); return; } setPage(label); };
-  const disconnectWallet = () => {
+  const disconnectWallet = async () => {
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        setNotice("Probon could not end your account session. Please try again.");
+        return;
+      }
+    }
     setWalletAddress("");
     setWalletChainId("");
     try {
       localStorage.removeItem("probon-wallet-address");
       localStorage.removeItem("probon-wallet-chain");
     } catch { /* local storage may be unavailable */ }
-    setNotice("Wallet disconnected from Probon. Your browser wallet remains installed and can be reconnected at any time.");
+    setNotice("Wallet disconnected from Probon.");
   };
   useEffect(() => {
     const provider = window.ethereum;
@@ -154,18 +162,62 @@ function App() {
     };
   }, []);
   const connectWallet = async () => {
-    if(!window.ethereum) { setNotice("No browser wallet detected. Install an Arc-compatible wallet and try again."); return; }
+    if (!window.ethereum) { setNotice("No browser wallet detected. Install an Arc-compatible wallet and try again."); return; }
     try {
-      const accounts = await window.ethereum.request({method:"eth_requestAccounts"});
-      const chain = await window.ethereum.request({method:"eth_chainId"});
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      const chain = await window.ethereum.request({ method: "eth_chainId" });
       const account = Array.isArray(accounts) ? accounts[0] : "";
-      if(typeof account!=="string" || !account) { setNotice("Wallet did not return an account."); return; }
-      const chainId = typeof chain==="string" ? chain.toLowerCase() : "";
-      setWalletAddress(account); setWalletChainId(chainId);
-      localStorage.setItem("probon-wallet-address",account); localStorage.setItem("probon-wallet-chain",chainId);
-      if(chainId!=="0x13b2") setNotice("Wallet connected, but it is not on Arc Mainnet (Chain ID 5042). Switch networks before joining campaigns.");
-      else setNotice("Arc wallet connected. Your address will be recorded when you join a campaign.");
-    } catch { setNotice("Wallet connection was cancelled or failed."); }
+      if (typeof account !== "string" || !account) { setNotice("Wallet did not return an account."); return; }
+      const chainId = typeof chain === "string" ? chain.toLowerCase() : "";
+      if (chainId !== "0x13b2") {
+        setWalletAddress(account); setWalletChainId(chainId);
+        localStorage.setItem("probon-wallet-address", account);
+        localStorage.setItem("probon-wallet-chain", chainId);
+        setNotice("Wallet connected, but it is not on Arc Mainnet (Chain ID 5042). Switch networks before continuing.");
+        return;
+      }
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.auth.signInWithWeb3({
+          chain: "ethereum",
+          statement: "Sign in to Probon to join creator campaigns and manage campaign submissions."
+        });
+        if (error || !data.user || !data.session) {
+          setNotice(error?.message ? "Wallet sign-in failed. Check that Ethereum Web3 sign-in is enabled in Supabase and try again." : "Wallet sign-in did not create a session. Please try again.");
+          return;
+        }
+        const signedInAddress = account.toLowerCase();
+        const metadataAddress = String(
+          data.user.user_metadata?.address ||
+          data.user.user_metadata?.wallet_address ||
+          data.user.identities?.find(identity => identity.provider === "web3")?.identity_data?.address ||
+          signedInAddress
+        ).toLowerCase();
+        if (metadataAddress !== signedInAddress) {
+          await supabase.auth.signOut();
+          setNotice("The authenticated wallet did not match the connected wallet. Reconnect and try again.");
+          return;
+        }
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: data.user.id,
+          wallet_address: signedInAddress
+        }, { onConflict: "id" });
+        if (profileError) {
+          setNotice("Wallet verified, but Probon could not save your profile. Check that the database migration completed and try again.");
+          return;
+        }
+        setWalletAddress(account); setWalletChainId(chainId);
+        localStorage.setItem("probon-wallet-address", account);
+        localStorage.setItem("probon-wallet-chain", chainId);
+        setNotice("Wallet verified. You are signed in to Probon on Arc Mainnet.");
+      } else {
+        setWalletAddress(account); setWalletChainId(chainId);
+        localStorage.setItem("probon-wallet-address", account);
+        localStorage.setItem("probon-wallet-chain", chainId);
+        setNotice("Wallet connected, but Supabase is not configured. Database-backed features remain unavailable.");
+      }
+    } catch {
+      setNotice("Wallet connection or sign-in was cancelled or failed. No funds were moved.");
+    }
   };
   const joinCampaign = (c:Campaign) => {
     if(!walletAddress) { setNotice("Connect your Arc wallet first. Your wallet address is recorded as the participant identity."); return; }
