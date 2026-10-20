@@ -60,7 +60,37 @@ contract ProbonEscrowTest {
 
         vm.warp(block.timestamp + 1 days + 1);
         vm.prank(CREATOR);
-        escrow.rejectSubmission(id, ALICE); // Already paid: must not be allowed.
+        vm.expectRevert(ProbonEscrow.InvalidParticipationState.selector);
+        escrow.rejectSubmission(id, ALICE); // Paid work cannot be finalized a second time.
+    }
+
+
+    function testRefundRequiresDeadlineAndFinalizedParticipants() public {
+        uint256 budget = 10 ether;
+        uint256 fee = budget / 20;
+        vm.prank(CREATOR);
+        uint256 id = escrow.createCampaign{value: budget + fee}(budget, 1 ether, 5, uint64(block.timestamp + 1 days));
+
+        vm.prank(ALICE);
+        escrow.joinCampaign(id);
+
+        vm.prank(CREATOR);
+        vm.expectRevert(ProbonEscrow.DeadlineNotPassed.selector);
+        escrow.refundRemainingBudget(id);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.prank(CREATOR);
+        vm.expectRevert(ProbonEscrow.ParticipantsNotFinalized.selector);
+        escrow.refundRemainingBudget(id);
+
+        vm.prank(CREATOR);
+        escrow.rejectSubmission(id, ALICE);
+
+        uint256 before = CREATOR.balance;
+        vm.prank(CREATOR);
+        escrow.refundRemainingBudget(id);
+        require(CREATOR.balance == before + budget, "refund amount incorrect");
+        require(address(escrow).balance == 0, "escrow should be empty");
     }
 
     function testCannotJoinTwiceOrBeyondSlots() public {
