@@ -10,6 +10,10 @@ interface Vm {
     function expectRevert(bytes calldata revertData) external;
 }
 
+contract RejectNativeTransfer {
+    receive() external payable { revert(); }
+}
+
 contract ProbonEscrowTest {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     address private constant FEE = address(0xFEE);
@@ -35,6 +39,16 @@ contract ProbonEscrowTest {
         require(address(escrow).balance == budget, "budget not escrowed");
         (address creator, uint256 storedBudget, uint256 remaining,,,,,,) = escrow.campaigns(id);
         require(creator == CREATOR && storedBudget == budget && remaining == budget, "campaign mismatch");
+    }
+
+    function testFeeTransferFailureRevertsCampaignCreationAtomically() public {
+        RejectNativeTransfer receiver = new RejectNativeTransfer();
+        ProbonEscrow isolated = new ProbonEscrow(address(receiver));
+        vm.prank(CREATOR);
+        vm.expectRevert(ProbonEscrow.TransferFailed.selector);
+        isolated.createCampaign{value: 10.5 ether}(10 ether, 1 ether, 5, uint64(block.timestamp + 1 days));
+        require(isolated.nextCampaignId() == 1, "campaign id advanced despite revert");
+        require(address(isolated).balance == 0, "funds retained despite revert");
     }
 
     function testIncorrectFundingReverts() public {
