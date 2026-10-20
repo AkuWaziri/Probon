@@ -139,13 +139,14 @@ function App() {
     const p=participations.find(x=>x.campaignId===selected.id);
     if(!p || p.status!=="Joined") { setNotice("A submission has already been recorded for this campaign."); return; }
     if(selected.status!=="Active" || new Date(selected.deadline+" 23:59:59").getTime() < Date.now()) { setNotice("This campaign has closed to new submissions."); return; }
+    const promoToSubmit = submissionPromoLink || p.promoDraftLink || "";
     try {
-      for (const value of [submissionPromoLink, submissionLink]) {
+      for (const value of [promoToSubmit, submissionLink]) {
         const u = new URL(value);
         if(!["http:","https:"].includes(u.protocol)) throw new Error();
       }
     } catch { setNotice("Enter valid public URLs for both the Probon post and campaign work, beginning with https://"); return; }
-    setParticipations(ps=>ps.map(x=>x.campaignId===selected.id?{...x,promoLink:submissionPromoLink,link:submissionLink,status:"Submitted"}:x));
+    setParticipations(ps=>ps.map(x=>x.campaignId===selected.id?{...x,promoLink:promoToSubmit,link:submissionLink,status:"Submitted"}:x));
     setSelected(null); setSubmissionLink(""); setSubmissionPromoLink(""); setNotice("Both links were submitted. The Probon post link and campaign work link are locked and cannot be replaced, even if the review is rejected.");
   };
   const createCampaign = (e:FormEvent) => {
