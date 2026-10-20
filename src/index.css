@@ -35,3 +35,21 @@
 .campaign-sky{background:#f8fcff;border-color:#d8edf9}.campaign-sky:before{background:#66bce9}
 .campaign-peach{background:#fffaf7;border-color:#f4e0d4}.campaign-peach:before{background:#eaa07c}
 @media(max-width:680px){.brand-upload-field{grid-column:auto}.brand-upload-row{gap:9px}.brand-upload-preview,.brand-upload-placeholder{width:46px;height:46px;flex-basis:46px}.remove-logo-button{font-size:9px}}
+
+
+/* Notification preferences and campaign owner contact details */
+.notification-settings-card{margin:0 0 18px;padding:17px;border:1px solid #e8e2f2;border-radius:12px;background:#fcfbff}
+.notification-settings-head{display:flex;align-items:center;justify-content:space-between;gap:15px}
+.notification-settings-head strong,.campaign-notify-box>strong{font:750 13px Manrope,sans-serif;color:#322b40}
+.notification-settings-head p,.campaign-notify-box>p{margin:5px 0 0;font-size:11px;line-height:1.6;color:#898296}
+.notification-form{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:16px;padding-top:15px;border-top:1px solid #eee9f5}
+.notification-form>label:not(.notification-check),.campaign-notify-box label{display:grid;gap:6px;font-size:10px;font-weight:700;color:#514a62}
+.notification-form input:not([type=checkbox]),.campaign-notify-box input{width:100%;height:38px;padding:0 10px;border:1px solid #e7e2ee;border-radius:8px;background:#fff;font-size:11px;color:#393345}
+.notification-check{display:flex;align-items:center;gap:8px;font-size:10px;color:#6f687e}
+.notification-check input{accent-color:#7655e8}
+.notification-disclaimer{grid-column:1/-1;margin:0;font-size:10px;line-height:1.6;color:#8d869c}
+.notification-form>.primary-button{justify-self:start}
+.campaign-notify-box{display:grid;grid-template-columns:1fr 1fr;gap:11px;padding:14px;border:1px solid #e8e2f2;border-radius:10px;background:#fcfbff}
+.campaign-notify-box>strong,.campaign-notify-box>p{grid-column:1/-1}
+.campaign-notify-box>p{margin-top:-6px}
+@media(max-width:680px){.notification-settings-head{align-items:flex-start;flex-direction:column}.notification-form{grid-template-columns:1fr}.notification-disclaimer{grid-column:auto}.campaign-notify-box{grid-template-columns:1fr}.campaign-notify-box>strong,.campaign-notify-box>p{grid-column:auto}}
