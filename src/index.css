@@ -92,3 +92,47 @@
   .top-actions .icon-button{display:none}
   .wallet-button{width:34px;height:34px;flex:0 0 34px}
 }
+
+
+/* Expanded joined-campaign details and clearly separated Probon post URL field */
+.participation-list{gap:18px}
+.participation-entry{display:grid;gap:0;min-width:0}
+.participation-campaign-box{align-items:flex-start;gap:14px;padding:18px;border-radius:12px 12px 0 0}
+.participation-campaign-box .participation-main{gap:9px}
+.participation-description{margin:0;font-size:12px;line-height:1.7;color:#777185}
+.participation-detail-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:5px}
+.participation-detail-grid>div{display:grid;align-content:start;gap:6px;min-width:0;padding:10px;border:1px solid #ebe6f3;border-radius:8px;background:#ffffffb8}
+.participation-detail-grid span{font-size:8px;line-height:1.4;letter-spacing:.35px;color:#8e879c;font-weight:800}
+.participation-detail-grid strong{font-size:11px;line-height:1.45;color:#3f374f;overflow-wrap:anywhere}
+.participation-brief{padding:11px 12px;border-radius:8px;background:#ffffffb8;border:1px solid #ebe6f3}
+.participation-brief strong{font-size:10px;color:#514a62}
+.participation-brief p{margin:5px 0 0;font-size:11px;line-height:1.6;color:#827c90}
+.participation-details-button{flex-shrink:0}
+.participation-post-link{display:grid;gap:9px;padding:15px 17px;border:1px solid #e8e2f2;border-top:0;border-radius:0 0 12px 12px;background:#fcfbff}
+.participation-post-link-heading{display:grid;gap:5px}
+.participation-post-link-heading>strong,.participation-post-link>strong{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:#433952}
+.participation-post-link-heading small{font-size:10px;line-height:1.5;color:#898296}
+.required-tag{display:inline-flex;align-items:center;border-radius:999px;padding:4px 7px;background:#eee8ff;color:#7655e8;font-size:8px;font-weight:800;letter-spacing:.55px}
+.saved-post-link,.submitted-post-link>a{display:flex;align-items:center;gap:5px;width:fit-content;max-width:100%;overflow-wrap:anywhere;color:#7050d9;font-size:10px;text-decoration:none}
+.participation-post-link .form-hint{margin:0}
+.submitted-post-link{border-top:1px solid #e8e2f2;border-radius:0 0 12px 12px;background:#f8f6fc}
+.submitted-post-link>strong:not(:first-child){margin-top:6px}
+.join-post-modal{width:min(100%,620px)}
+.join-post-modal .modal-top{align-items:flex-start}
+.join-post-modal .modal-top h2{margin:8px 0}
+.join-post-modal .modal-top p{max-width:480px}
+.join-popup-post{margin-top:14px}
+.join-popup-post .promo-copy-button{margin-top:2px}
+.join-post-modal .modal-actions{justify-content:space-between;flex-wrap:wrap}
+@media(max-width:900px){.participation-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){
+  .participation-campaign-box{padding:13px;gap:10px}
+  .participation-details-button{margin-left:45px}
+  .participation-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .participation-brief{width:100%}
+  .participation-post-link{padding:13px}
+  .participation-post-link .submission-input{flex-direction:column}
+  .participation-post-link .submission-input button{justify-content:center;min-height:38px}
+  .join-post-modal .modal-actions{flex-direction:column}
+  .join-post-modal .modal-actions button{width:100%;justify-content:center}
+}
