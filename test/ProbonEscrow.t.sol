@@ -45,7 +45,7 @@ contract ProbonEscrowTest {
         RejectNativeTransfer receiver = new RejectNativeTransfer();
         ProbonEscrow isolated = new ProbonEscrow(address(receiver));
         vm.prank(CREATOR);
-        vm.expectRevert(ProbonEscrow.TransferFailed.selector);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.TransferFailed.selector));
         isolated.createCampaign{value: 10.5 ether}(10 ether, 1 ether, 5, uint64(block.timestamp + 1 days));
         require(isolated.nextCampaignId() == 1, "campaign id advanced despite revert");
         require(address(isolated).balance == 0, "funds retained despite revert");
@@ -74,7 +74,7 @@ contract ProbonEscrowTest {
 
         vm.warp(block.timestamp + 1 days + 1);
         vm.prank(CREATOR);
-        vm.expectRevert(ProbonEscrow.InvalidParticipationState.selector);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.InvalidParticipationState.selector));
         escrow.rejectSubmission(id, ALICE); // Paid work cannot be finalized a second time.
     }
 
@@ -89,12 +89,12 @@ contract ProbonEscrowTest {
         escrow.joinCampaign(id);
 
         vm.prank(CREATOR);
-        vm.expectRevert(ProbonEscrow.DeadlineNotPassed.selector);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.DeadlineNotPassed.selector));
         escrow.refundRemainingBudget(id);
 
         vm.warp(block.timestamp + 1 days + 1);
         vm.prank(CREATOR);
-        vm.expectRevert(ProbonEscrow.ParticipantsNotFinalized.selector);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.ParticipantsNotFinalized.selector));
         escrow.refundRemainingBudget(id);
 
         vm.prank(CREATOR);
@@ -113,14 +113,14 @@ contract ProbonEscrowTest {
         vm.prank(ALICE);
         escrow.joinCampaign(id);
         vm.prank(ALICE);
-        vm.expectRevert(ProbonEscrow.AlreadyParticipated.selector);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.AlreadyParticipated.selector));
         escrow.joinCampaign(id);
         vm.prank(BOB);
         escrow.joinCampaign(id);
         address carol = address(0xCA);
         vm.deal(carol, 1 ether);
         vm.prank(carol);
-        vm.expectRevert(ProbonEscrow.CampaignFull.selector);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.CampaignFull.selector));
         escrow.joinCampaign(id);
     }
 }
