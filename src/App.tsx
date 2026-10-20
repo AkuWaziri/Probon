@@ -4,7 +4,7 @@ import {
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
   DollarSign, ExternalLink, FileCheck2, Filter, Globe2, LayoutDashboard,
   Menu, MessageCircle, MoreHorizontal, Plus, Search, Settings2, ShieldCheck,
-  Sparkles, Wallet, X, Video, Send, TrendingUp, Users
+  Wallet, X, Video, Send, TrendingUp, Users
 } from "lucide-react";
 
 declare global { interface Window { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } } }
@@ -161,7 +161,6 @@ function App() {
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <div className="nav-list">{navItems.map(item=>{const Icon=item.icon; return <button key={item.label} className={`nav-item ${page===item.label?"selected":""}`} onClick={()=>setPageTo(item.label)}><Icon size={18} strokeWidth={1.8}/><span>{item.label}</span>{item.label==="My participation"&&participations.length>0&&<span className="nav-count">{participations.length}</span>}{item.label==="Create campaign"&&<span className="nav-plus"><Plus size={13}/></span>}</button>;})}</div>
       <div className="sidebar-bottom">
-        <div className="ai-card"><div className="ai-card-icon"><Sparkles size={16}/></div><strong>Campaign copilot</strong><p>Better briefs. Better creators. Better results.</p><button onClick={()=>setNotice("Campaign Copilot: draft a clear brief, define deliverables, and set measurable review criteria before funding.")}>Try AI assistant <ArrowRight size={13}/></button></div>
         <button className="nav-item muted-nav" onClick={()=>setNotice("Help center is coming soon.")}><CircleHelp size={18}/><span>Help & support</span></button>
         <div className="profile-row"><div className="avatar">G</div><div className="profile-copy"><strong>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Guest profile"}</strong><span>{walletAddress?walletChainId==="0x13b2"?"Arc Mainnet connected":"Switch to Arc Mainnet":"Connect wallet to continue"}</span></div><MoreHorizontal size={19}/></div>
       </div>
