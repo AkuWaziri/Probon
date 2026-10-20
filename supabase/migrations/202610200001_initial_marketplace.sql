@@ -117,7 +117,7 @@ create policy "creator read own campaigns" on public.campaigns for select to aut
 drop policy if exists "creator create campaign record" on public.campaigns;
 create policy "creator create campaign record" on public.campaigns for insert to authenticated with check (
   creator_user_id = (select auth.uid()) and
-  creator_wallet = lower(coalesce((select auth.jwt() -> 'user_metadata' ->> 'wallet_address'), ''))
+  creator_wallet = lower(coalesce((select auth.jwt() -> 'user_metadata' ->> 'address'), ''))
 );
 drop policy if exists "creator update own campaigns" on public.campaigns;
 create policy "creator update own campaigns" on public.campaigns for update to authenticated using (creator_user_id = (select auth.uid())) with check (creator_user_id = (select auth.uid()));
@@ -131,7 +131,7 @@ create policy "participant and creator read joins" on public.campaign_participat
 drop policy if exists "participant join eligible campaign" on public.campaign_participations;
 create policy "participant join eligible campaign" on public.campaign_participations for insert to authenticated with check (
   participant_user_id = (select auth.uid()) and
-  participant_wallet = lower(coalesce((select auth.jwt() -> 'user_metadata' ->> 'wallet_address'), '')) and
+  participant_wallet = lower(coalesce((select auth.jwt() -> 'user_metadata' ->> 'address'), '')) and
   exists (select 1 from public.campaigns c where c.id = campaign_id and c.funding_status = 'confirmed'
     and c.status = 'active' and c.deadline > now() and c.joined_count < c.slots_total)
 );
@@ -171,7 +171,7 @@ create or replace function public.join_campaign(p_campaign_id uuid)
 returns public.campaign_participations language plpgsql security definer set search_path = public as $$
 declare
   v_user_id uuid := auth.uid();
-  v_wallet text := lower(coalesce(auth.jwt() -> 'user_metadata' ->> 'wallet_address', ''));
+  v_wallet text := lower(coalesce(auth.jwt() -> 'user_metadata' ->> 'address', ''));
   v_campaign public.campaigns;
   v_participation public.campaign_participations;
 begin
