@@ -7,7 +7,7 @@ import {
   Wallet, X, Video, Send, TrendingUp, Users
 } from "lucide-react";
 
-declare global { interface Window { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } } }
+declare global { interface Window { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown>; on?: (event: string, handler: (...args: unknown[]) => void) => void; removeListener?: (event: string, handler: (...args: unknown[]) => void) => void } } }
 
 type Channel = "X / Twitter" | "TikTok" | "Telegram" | "WhatsApp" | "Video" | "Blog" | "Medium" | "Other";
 type Campaign = {
@@ -107,6 +107,49 @@ function App() {
   }, [campaigns, page, query, channel, category, sort, participations]);
   const activeCount = campaigns.filter(c=>c.status==="Active").length;
   const setPageTo = (label:string) => { setMobileOpen(false); if(label==="Create campaign") { setShowCreate(true); return; } setPage(label); };
+  const disconnectWallet = () => {
+    setWalletAddress("");
+    setWalletChainId("");
+    try {
+      localStorage.removeItem("probon-wallet-address");
+      localStorage.removeItem("probon-wallet-chain");
+    } catch { /* local storage may be unavailable */ }
+    setNotice("Wallet disconnected from Probon. Your browser wallet remains installed and can be reconnected at any time.");
+  };
+  useEffect(() => {
+    const provider = window.ethereum;
+    if (!provider) return;
+    const syncAccounts = (...args: unknown[]) => {
+      const accounts = args[0];
+      const account = Array.isArray(accounts) && typeof accounts[0] === "string" ? accounts[0] : "";
+      setWalletAddress(account);
+      try {
+        if (account) localStorage.setItem("probon-wallet-address", account);
+        else localStorage.removeItem("probon-wallet-address");
+      } catch { /* local storage may be unavailable */ }
+    };
+    const syncChain = (...args: unknown[]) => {
+      const chain = typeof args[0] === "string" ? args[0].toLowerCase() : "";
+      setWalletChainId(chain);
+      try {
+        if (chain) localStorage.setItem("probon-wallet-chain", chain);
+        else localStorage.removeItem("probon-wallet-chain");
+      } catch { /* local storage may be unavailable */ }
+    };
+    provider.on?.("accountsChanged", syncAccounts);
+    provider.on?.("chainChanged", syncChain);
+    // Refresh cached UI state from the active provider on load/reload.
+    void provider.request({ method: "eth_accounts" }).then(accounts => {
+      if (Array.isArray(accounts)) syncAccounts(accounts);
+    }).catch(() => {});
+    void provider.request({ method: "eth_chainId" }).then(chain => {
+      if (typeof chain === "string") syncChain(chain);
+    }).catch(() => {});
+    return () => {
+      provider.removeListener?.("accountsChanged", syncAccounts);
+      provider.removeListener?.("chainChanged", syncChain);
+    };
+  }, []);
   const connectWallet = async () => {
     if(!window.ethereum) { setNotice("No browser wallet detected. Install an Arc-compatible wallet and try again."); return; }
     try {
@@ -170,7 +213,7 @@ function App() {
     </aside>
     {mobileOpen&&<button className="mobile-scrim" onClick={()=>setMobileOpen(false)} aria-label="Close menu"/>}
     <main className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(v=>!v)} aria-label={mobileOpen?"Close menu":"Open menu"}>{mobileOpen?<X size={22}/>:<Menu size={22}/>}</button><button className="brand-lockup mobile-topbar-brand" onClick={()=>setPageTo("Explore")} aria-label="Probon home"><span className="brand-symbol">p<span>.</span></span><span className="brand-name">probon</span></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div><div className="top-actions"><span className="network-pill"><span className="network-dot"/><span className="network-label-desktop">Arc network</span><span className="network-label-mobile"><strong>Arc.</strong> Network</span></span><button className="icon-button" onClick={()=>setNotice("You\u0027re all caught up.")} aria-label="Notifications"><Bell size={18}/><i/></button><button className="wallet-button" onClick={connectWallet}><Wallet size={16}/>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Connect wallet"}</button></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={()=>setMobileOpen(v=>!v)} aria-label={mobileOpen?"Close menu":"Open menu"}>{mobileOpen?<X size={22}/>:<Menu size={22}/>}</button><button className="brand-lockup mobile-topbar-brand" onClick={()=>setPageTo("Explore")} aria-label="Probon home"><span className="brand-symbol">p<span>.</span></span><span className="brand-name">probon</span></button><div className="breadcrumbs"><span>Workspace</span><span className="crumb-slash">/</span><strong>{page}</strong></div><div className="top-actions"><span className="network-pill"><span className="network-dot"/><span className="network-label-desktop">Arc network</span><span className="network-label-mobile"><strong>Arc.</strong> Network</span></span><button className="icon-button" onClick={()=>setNotice("You\u0027re all caught up.")} aria-label="Notifications"><Bell size={18}/><i/></button><button className={`wallet-button ${walletAddress?"wallet-connected":""}`} onClick={walletAddress?disconnectWallet:connectWallet} title={walletAddress?"Disconnect wallet":"Connect wallet"} aria-label={walletAddress?"Disconnect wallet":"Connect wallet"}><Wallet size={16}/>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Connect wallet"}{walletAddress&&<span className="wallet-disconnect-label">Disconnect</span>}</button></div></header>
       <div className="page-content">
         {page==="Explore" ? <>
           <section className="welcome-row"><div><div className="eyebrow"><span className="eyebrow-dot"/> THE CREATOR CAMPAIGN MARKETPLACE</div><h1>Good work deserves<br className="desktop-break"/> <span>good rewards.</span></h1><p className="welcome-copy">Discover paid campaigns from brands. Create something valuable, share your work, get rewarded.</p><div className="hero-actions"><button className="primary-button" onClick={()=>setShowCreate(true)}><Plus size={17}/> Create a campaign</button><button className="text-button" onClick={()=>setPage("My participation")}>Track my work <ArrowRight size={15}/></button></div></div><div className="hero-art" aria-hidden="true"><div className="art-orbit orbit-one"/><div className="art-orbit orbit-two"/><div className="art-core"><span>p.</span></div><div className="float-card float-top"><span className="float-check"><Check size={13}/></span><span><b>Work approved</b><small>Reward unlocked</small></span></div><div className="float-card float-bottom"><div className="tiny-avatar">B</div><span><b>New opportunity</b><small>Up to $120 per task</small></span></div><div className="art-star star-one">✳</div><div className="art-star star-two">✳</div></div></section>
