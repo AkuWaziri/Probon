@@ -101,6 +101,7 @@ function App() {
     }
     let cancelled = false;
     const loadCampaigns = async () => {
+      if (!supabase) return;
       const { data, error } = await supabase.from("campaigns").select("*").order("created_at", { ascending: false });
       if (cancelled) return;
       if (error) {
