@@ -14,7 +14,8 @@
     "react": "latest",
     "react-dom": "latest",
     "vite": "latest",
-    "viem": "^2.37.3"
+    "viem": "^2.37.3",
+    "@supabase/supabase-js": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",

@@ -1,0 +1,4 @@
+project_id = "umibczxeizrkbcfzqmnh"
+
+[auth.web3.ethereum]
+enabled = true
