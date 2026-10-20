@@ -72,6 +72,7 @@ function App() {
   const [walletAddress, setWalletAddress] = useState(() => { try { return localStorage.getItem("probon-wallet-address") || ""; } catch { return ""; } });
   const [walletChainId, setWalletChainId] = useState(() => { try { return localStorage.getItem("probon-wallet-chain") || ""; } catch { return ""; } });
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
+    if (isSupabaseConfigured) return [];
     try { const saved = localStorage.getItem("probon-campaigns"); return saved ? [...JSON.parse(saved), ...initialCampaigns] : initialCampaigns; } catch { return initialCampaigns; }
   });
   const [participations, setParticipations] = useState<Participation[]>(() => {
@@ -93,9 +94,46 @@ function App() {
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>(() => { try { return { email:"", telegram:"", slotsFilled:true, rewardsDistributed:true, ...JSON.parse(localStorage.getItem("probon-notification-prefs") || "{}") }; } catch { return {email:"",telegram:"",slotsFilled:true,rewardsDistributed:true}; } });
   const [createForm, setCreateForm] = useState({brand:"", title:"", description:"", category:"Web3", channel:"X / Twitter" as Channel, reward:"50", slots:"10", deadline:"2026-11-05", requirements:"Original work. Include a public link and follow the campaign brief.",logo:"",creatorEmail:"",creatorTelegram:""});
-  useEffect(() => { localStorage.setItem("probon-campaigns", JSON.stringify(campaigns.filter(c => c.createdByMe))); }, [campaigns]);
-  useEffect(() => { localStorage.setItem("probon-participations", JSON.stringify(participations)); }, [participations]);
-  useEffect(() => { localStorage.setItem("probon-notification-prefs", JSON.stringify(notificationPrefs)); }, [notificationPrefs]);
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      try { localStorage.setItem("probon-campaigns", JSON.stringify(campaigns.filter(c => c.createdByMe))); } catch { /* storage may be unavailable */ }
+      return;
+    }
+    let cancelled = false;
+    const loadCampaigns = async () => {
+      const { data, error } = await supabase.from("campaigns").select("*").order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        setNotice("Probon could not load campaigns from the shared database. Refresh the page or check your Supabase setup.");
+        return;
+      }
+      const rows = (data || []).map((row: any): Campaign => ({
+        id: row.id,
+        brand: row.brand_name,
+        initials: row.brand_initials || row.brand_name?.slice(0,1) || "P",
+        logo: row.brand_logo_url || undefined,
+        category: row.category,
+        title: row.title,
+        description: row.description,
+        channel: row.channel as Channel,
+        reward: Number(row.reward_amount),
+        budget: Number(row.budget_amount),
+        slots: Number(row.slots_total),
+        joined: Number(row.joined_count),
+        deadline: new Date(row.deadline).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }),
+        status: row.status === "active" ? "Active" : row.status === "ended" ? "Ended" : row.status === "under_review" ? "Under review" : row.status === "completed" ? "Completed" : "Upcoming",
+        accent: "lavender",
+        requirements: row.requirements,
+        creatorWallet: row.creator_wallet,
+        createdByMe: Boolean(walletAddress && row.creator_wallet?.toLowerCase() === walletAddress.toLowerCase())
+      }));
+      setCampaigns(rows);
+    };
+    void loadCampaigns();
+    return () => { cancelled = true; };
+  }, [walletAddress]);
+  useEffect(() => { try { localStorage.setItem("probon-participations", JSON.stringify(participations)); } catch { /* storage may be unavailable */ } }, [participations]);
+  useEffect(() => { try { localStorage.setItem("probon-notification-prefs", JSON.stringify(notificationPrefs)); } catch { /* storage may be unavailable */ } }, [notificationPrefs]);
   const myParticipations = participations.filter(p => Boolean(walletAddress) && p.walletAddress?.toLowerCase() === walletAddress.toLowerCase());
   const joinedIds = new Set(myParticipations.map(p => p.campaignId));
   const ownsCampaign = (c: Campaign) => Boolean(walletAddress && c.creatorWallet && c.creatorWallet.toLowerCase() === walletAddress.toLowerCase());
@@ -248,7 +286,7 @@ function App() {
     setParticipations(ps=>ps.map(x=>x.campaignId===selected.id && x.walletAddress?.toLowerCase()===walletAddress.toLowerCase()?{...x,promoLink:promoToSubmit,link:submissionLink,status:"Submitted"}:x));
     setSelected(null); setSubmissionLink(""); setSubmissionPromoLink(""); setNotice("Both links were submitted. The Probon post link and campaign work link are locked and cannot be replaced, even if the review is rejected.");
   };
-  const createCampaign = (e:FormEvent) => {
+  const createCampaign = async (e:FormEvent) => {
     e.preventDefault();
     if (!walletAddress || walletChainId !== "0x13b2") { setNotice("Connect the creator wallet on Arc Mainnet before creating or editing a campaign."); return; }
     if (editingCampaignId) {
@@ -264,8 +302,47 @@ function App() {
     const reward=Number(createForm.reward), slots=Number(createForm.slots);
     if(!createForm.brand.trim() || !createForm.title.trim() || !Number.isFinite(reward) || reward<=0 || !Number.isInteger(slots) || slots<1) { setNotice("Complete all required fields with a valid reward and number of slots."); return; }
     if(createForm.creatorEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.creatorEmail.trim())) { setNotice("Enter a valid creator notification email or leave it blank."); return; }
-    const campaign:Campaign={id:"local-"+Date.now(),brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:new Date(createForm.deadline+"T23:59:59").getTime()<Date.now()?"Ended":"Active",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
-    setCampaigns(cs=>[campaign,...cs]); setShowCreate(false); setPage("My campaigns"); setNotice("Campaign draft created by your connected wallet. Funding and campaign records remain in demo mode.");
+    let campaign:Campaign={id:"local-"+Date.now(),brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:"Upcoming",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
+    if (isSupabaseConfigured && supabase) {
+      const { data: authData } = await supabase.auth.getUser();
+      if (!authData.user) { setNotice("Sign in with your Arc wallet before saving a shared campaign draft."); return; }
+      const deadline = new Date(createForm.deadline + "T23:59:59.000Z").toISOString();
+      const budget = reward * slots;
+      const { data, error } = await supabase.from("campaigns").insert({
+        creator_user_id: authData.user.id,
+        creator_wallet: walletAddress.toLowerCase(),
+        brand_name: createForm.brand.trim(),
+        brand_initials: createForm.brand.trim().slice(0,1).toUpperCase(),
+        category: createForm.category,
+        title: createForm.title.trim(),
+        description: createForm.description.trim(),
+        channel: createForm.channel,
+        reward_amount: reward,
+        budget_amount: budget,
+        platform_fee_amount: budget * 0.05,
+        slots_total: slots,
+        deadline,
+        status: "upcoming",
+        requirements: createForm.requirements,
+        funding_status: "pending"
+      }).select("*").single();
+      if (error || !data) {
+        setNotice("Campaign draft was not saved to the shared database. Check your wallet sign-in and database policies, then try again.");
+        return;
+      }
+      campaign = {...campaign, id:data.id, joined:Number(data.joined_count), status:"Upcoming"};
+      if (createForm.creatorEmail.trim() || createForm.creatorTelegram.trim()) {
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: authData.user.id,
+          wallet_address: walletAddress.toLowerCase(),
+          email: createForm.creatorEmail.trim() || null,
+          telegram_username: createForm.creatorTelegram.trim().replace(/^@/,"") || null
+        }, { onConflict:"id" });
+        if (profileError) setNotice("Campaign draft saved, but notification contact details could not be saved.");
+      }
+    }
+    setCampaigns(cs=>[campaign,...cs]); setShowCreate(false); setPage("My campaigns");
+    setNotice(isSupabaseConfigured ? "Campaign draft saved to Probon. It is not public or joinable until Arc escrow funding is confirmed." : "Campaign draft created locally. Configure Supabase to share it across devices.");
     setCreateForm({brand:"",title:"",description:"",category:"Web3",channel:"X / Twitter",reward:"50",slots:"10",deadline:"2026-11-05",requirements:"Original work. Include a public link and follow the campaign brief.",logo:"",creatorEmail:"",creatorTelegram:""});
   };
   return <div className="app-shell">
