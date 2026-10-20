@@ -88,7 +88,7 @@ contract ProbonEscrow {
         if (uint256(rewardPerParticipant) > budget / slots) revert InvalidAmount();
         if (deadline <= block.timestamp) revert InvalidDeadline();
 
-        uint256 fee = budget / 20;
+        uint256 fee = budget / (BPS_DENOMINATOR / PLATFORM_FEE_BPS);
         uint256 expected = budget + fee;
         if (msg.value != expected) revert IncorrectFunding(expected, msg.value);
 
