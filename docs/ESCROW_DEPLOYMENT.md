@@ -13,8 +13,8 @@ Arc's native asset is used for amounts. Confirm Arc Mainnet's current native-ass
 
 In the repository, open **Settings → Secrets and variables → Actions → New repository secret** and add:
 
-- `ARC_RPC_URL`: Arc Mainnet RPC endpoint (default public endpoint: `https://rpc.mainnet.arc.io`)
 - `ARC_DEPLOYER_PRIVATE_KEY`: private key for a dedicated deployment wallet funded with enough native USDC for gas
+- Optional: `ARC_RPC_URL` to override the default Arc Mainnet RPC endpoint (`https://rpc.mainnet.arc.io`)
 
 Never commit the private key, put it in a `VITE_*` variable, or paste it into chat. Use a dedicated wallet and verify the fee recipient before deploying.
 
