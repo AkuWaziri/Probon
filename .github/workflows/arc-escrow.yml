@@ -68,6 +68,13 @@ jobs:
           test -n "$ARC_RPC_URL" || (echo "::error::Add ARC_RPC_URL as an Actions secret"; exit 1)
           test -n "$DEPLOYER_PRIVATE_KEY" || (echo "::error::Add ARC_DEPLOYER_PRIVATE_KEY as an Actions secret"; exit 1)
           [[ "$FEE_RECIPIENT" =~ ^0x[0-9a-fA-F]{40}$ ]] || (echo "::error::Fee recipient must be a valid EVM address"; exit 1)
+          CHAIN_ID=$(cast chain-id --rpc-url "$ARC_RPC_URL")
+          [[ "$CHAIN_ID" == "5042" ]] || (echo "::error::RPC is on chain $CHAIN_ID, expected Arc Mainnet chain ID 5042"; exit 1)
+          DEPLOYER=$(cast wallet address --private-key "$DEPLOYER_PRIVATE_KEY")
+          BALANCE=$(cast balance "$DEPLOYER" --rpc-url "$ARC_RPC_URL")
+          echo "Deploying from $DEPLOYER on Arc Mainnet (chain $CHAIN_ID)"
+          echo "Deployer native USDC balance (base units): $BALANCE"
+          [[ "$BALANCE" != "0" ]] || (echo "::error::Deployment wallet has zero native balance; fund it for gas"; exit 1)
       - name: Deploy escrow
         id: deploy
         env:
