@@ -208,3 +208,29 @@
 
 
 .connected-wallet-card{display:grid;justify-items:center;gap:10px;margin:0 auto 8px;padding:18px;border:1px solid #d9e5ff;border-radius:12px;background:#f7f9ff}.connected-wallet-status{display:flex;align-items:center;gap:6px;color:#16845b;font-size:9px;font-weight:800;letter-spacing:.8px}.connected-wallet-card>strong{font:800 18px Manrope,sans-serif;letter-spacing:.2px;color:#26223a}.wallet-network-status{font-size:11px;color:#777185}.wallet-card-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-top:5px}.wallet-card-actions button{min-height:36px}
+
+
+/* Base Sepolia wallet balances: USDC is the primary campaign asset */
+.wallet-assets{width:100%;max-width:560px;margin:22px auto 0;text-align:left}
+.wallet-assets-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.wallet-assets-heading h3{margin:5px 0 0;font:800 18px Manrope,sans-serif;color:#26223a}
+.wallet-refresh-button{min-height:32px;padding:0 11px;font-size:10px}
+.wallet-asset-card{display:flex;align-items:center;gap:12px;min-width:0;padding:13px 15px;border:1px solid #e0e7f5;border-radius:12px;background:#fff}
+.wallet-usdc-card{padding:18px 17px;border-color:#cbdcff;background:linear-gradient(135deg,#f2f6ff,#fff 78%);box-shadow:0 8px 24px rgba(22,93,255,.08)}
+.wallet-asset-icon{display:grid;place-items:center;width:38px;height:38px;flex:0 0 38px;border-radius:50%;font-size:20px;font-weight:800}
+.usdc-token-icon{background:#2775ca;color:#fff}
+.eth-token-icon{background:#e9edff;color:#5969b8}
+.wallet-asset-info{display:grid;gap:4px;min-width:0}
+.wallet-asset-info>span{font-size:12px;font-weight:800;color:#332d43}
+.wallet-asset-info small{font-size:10px;color:#898296}
+.wallet-asset-balance{display:grid;gap:3px;justify-items:end;margin-left:auto;min-width:0}
+.wallet-asset-balance strong{font:800 21px Manrope,sans-serif;letter-spacing:-.5px;color:#25213a;overflow-wrap:anywhere}
+.wallet-usdc-card .wallet-asset-balance strong{font-size:27px;color:#165dff}
+.wallet-asset-balance span{font-size:10px;font-weight:700;color:#827b91}
+.wallet-secondary-assets{display:grid;grid-template-columns:1fr;margin-top:9px}
+.wallet-secondary-assets .wallet-asset-card{padding:11px 13px}
+.wallet-secondary-assets .wallet-asset-balance strong{font-size:15px}
+.wallet-assets-note,.wallet-balance-network-note{margin:11px 0 0;font-size:10px;line-height:1.6;color:#898296}
+.wallet-balance-error{margin:10px 0 0;font-size:11px;color:#b24c62}
+.wallet-balance-network-note{padding:12px;border:1px solid #f0e1bd;border-radius:9px;background:#fffaf0;color:#85652a}
+@media(max-width:680px){.wallet-assets{margin-top:18px}.wallet-assets-heading h3{font-size:16px}.wallet-usdc-card{padding:14px 12px}.wallet-usdc-card .wallet-asset-balance strong{font-size:22px}.wallet-asset-info small{font-size:9px}}
