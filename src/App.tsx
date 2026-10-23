@@ -182,7 +182,6 @@ function App() {
   const ownsCampaign = (c: Campaign) => Boolean(walletAddress && c.creatorWallet && c.creatorWallet.toLowerCase() === walletAddress.toLowerCase());
   const filtered = useMemo(() => {
     let list = campaigns.filter(c => (page === "My campaigns" ? ownsCampaign(c) : page === "My participation" ? joinedIds.has(c.id) : true));
-    if (page === "Explore") list = list.filter(c => !ownsCampaign(c));
     if (query.trim()) { const q=query.toLowerCase(); list=list.filter(c => [c.title,c.brand,c.description,c.category,c.channel].some(s=>s.toLowerCase().includes(q))); }
     if (channel !== "All channels") list=list.filter(c=>c.channel===channel);
     if (category !== "All categories") list=list.filter(c=>c.category===category);
@@ -402,49 +401,63 @@ function App() {
       return;
     }
     let campaign:Campaign={id:"chain-"+escrowResult.campaignId,contractCampaignId:escrowResult.campaignId,escrowTxHash:escrowResult.txHash,brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:"Active",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
+    // The chain transaction is the source of truth for funding. Show the confirmed
+    // campaign immediately; database/session issues must never hide a successful on-chain result.
+    setCampaigns(cs => [campaign, ...cs.filter(existing => existing.id !== campaign.id)]);
+    setShowCreate(false);
+    setEditingCampaignId(null);
+    setPage("My campaigns");
+    setCreateForm({brand:"",title:"",description:"",category:"Web3",channel:"X / Twitter",reward:"50",slots:"10",deadline:"2026-11-05",requirements:"Original work. Include a public link and follow the campaign brief.",logo:"",creatorEmail:"",creatorTelegram:""});
+    setNotice("Campaign funded successfully on Base Sepolia. USDC approval and funding transactions are confirmed. Campaign ID: " + escrowResult.campaignId + ". Transaction: " + escrowResult.txHash);
+
     if (isSupabaseConfigured && supabase) {
-      const { data: authData } = await supabase.auth.getUser();
-      if (!authData.user) { setNotice("Sign in with your Base wallet before saving a shared campaign draft."); return; }
-      const deadline = new Date(createForm.deadline + "T23:59:59.000Z").toISOString();
-      const budget = reward * slots;
-      const { data, error } = await supabase.from("campaigns").insert({
-        creator_user_id: authData.user.id,
-        creator_wallet: walletAddress.toLowerCase(),
-        brand_name: createForm.brand.trim(),
-        brand_initials: createForm.brand.trim().slice(0,1).toUpperCase(),
-        category: createForm.category,
-        title: createForm.title.trim(),
-        description: createForm.description.trim(),
-        channel: createForm.channel,
-        reward_amount: reward,
-        budget_amount: budget,
-        platform_fee_amount: budget * 0.05,
-        slots_total: slots,
-        deadline,
-        status: "active",
-        requirements: createForm.requirements,
-        funding_status: "funded",
-        escrow_campaign_id: escrowResult.campaignId,
-        escrow_tx_hash: escrowResult.txHash
-      }).select("*").single();
-      if (error || !data) {
-        setNotice("Campaign draft was not saved to the shared database. Check your wallet sign-in and database policies, then try again.");
-        return;
-      }
-      campaign = {...campaign, joined:Number(data.joined_count), status:"Active"};
-      if (createForm.creatorEmail.trim() || createForm.creatorTelegram.trim()) {
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: authData.user.id,
-          wallet_address: walletAddress.toLowerCase(),
-          email: createForm.creatorEmail.trim() || null,
-          telegram_username: createForm.creatorTelegram.trim().replace(/^@/,"") || null
-        }, { onConflict:"id" });
-        if (profileError) setNotice("Campaign draft saved, but notification contact details could not be saved.");
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        if (authError || !authData.user) {
+          setNotice("Campaign funded successfully and is visible in My campaigns on this device. Shared listing sync needs wallet sign-in; the on-chain funding is confirmed.");
+          return;
+        }
+        const deadline = new Date(createForm.deadline + "T23:59:59.000Z").toISOString();
+        const budget = reward * slots;
+        const { data, error } = await supabase.from("campaigns").insert({
+          creator_user_id: authData.user.id,
+          creator_wallet: walletAddress.toLowerCase(),
+          brand_name: createForm.brand.trim(),
+          brand_initials: createForm.brand.trim().slice(0,1).toUpperCase(),
+          category: createForm.category,
+          title: createForm.title.trim(),
+          description: createForm.description.trim(),
+          channel: createForm.channel,
+          reward_amount: reward,
+          budget_amount: budget,
+          platform_fee_amount: budget * 0.05,
+          slots_total: slots,
+          deadline,
+          status: "active",
+          requirements: createForm.requirements,
+          funding_status: "funded",
+          escrow_campaign_id: escrowResult.campaignId,
+          escrow_tx_hash: escrowResult.txHash
+        }).select("*").single();
+        if (error || !data) {
+          setNotice("Campaign funded successfully and is visible in My campaigns on this device, but shared listing sync failed. The on-chain funds remain in escrow.");
+          return;
+        }
+        campaign = {...campaign, joined:Number(data.joined_count), status:"Active"};
+        setCampaigns(cs => cs.map(existing => existing.id === campaign.id ? campaign : existing));
+        if (createForm.creatorEmail.trim() || createForm.creatorTelegram.trim()) {
+          const { error: profileError } = await supabase.from("profiles").upsert({
+            id: authData.user.id,
+            wallet_address: walletAddress.toLowerCase(),
+            email: createForm.creatorEmail.trim() || null,
+            telegram_username: createForm.creatorTelegram.trim().replace(/^@/,"") || null
+          }, { onConflict:"id" });
+          if (profileError) setNotice("Campaign funded and listed successfully. Notification contact details could not be saved.");
+        }
+      } catch {
+        setNotice("Campaign funded successfully and is visible in My campaigns on this device, but shared listing sync failed. The on-chain funds remain in escrow.");
       }
     }
-    setCampaigns(cs=>[campaign,...cs]); setShowCreate(false); setPage("My campaigns");
-    setNotice("Campaign funded on Base Sepolia. On-chain campaign ID: " + escrowResult.campaignId + ". Transaction: " + escrowResult.txHash);
-    setCreateForm({brand:"",title:"",description:"",category:"Web3",channel:"X / Twitter",reward:"50",slots:"10",deadline:"2026-11-05",requirements:"Original work. Include a public link and follow the campaign brief.",logo:"",creatorEmail:"",creatorTelegram:""});
   };
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen?"sidebar-open":""}`}>
