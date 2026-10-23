@@ -205,15 +205,50 @@ function App() {
     if (!window.ethereum) { setNotice("No browser wallet detected. Install a Base-compatible wallet and try again."); return; }
     try {
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      const chain = await window.ethereum.request({ method: "eth_chainId" });
       const account = Array.isArray(accounts) ? accounts[0] : "";
       if (typeof account !== "string" || !account) { setNotice("Wallet did not return an account."); return; }
-      const chainId = typeof chain === "string" ? chain.toLowerCase() : "";
+
+      // Probon runs on Base Sepolia during testing. Switch the wallet as soon as
+      // the user connects, adding the network if their wallet does not know it.
+      let chain = await window.ethereum.request({ method: "eth_chainId" });
+      let chainId = typeof chain === "string" ? chain.toLowerCase() : "";
       if (chainId !== "0x14a34") {
-        setWalletAddress(account); setWalletChainId(chainId);
-        localStorage.setItem("probon-wallet-address", account);
-        localStorage.setItem("probon-wallet-chain", chainId);
-        setNotice("Wallet connected, but it is not on Base Sepolia (Chain ID 84532). Switch networks before continuing.");
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x14a34" }]
+          });
+        } catch (switchError) {
+          const code = (switchError as { code?: number }).code;
+          if (code !== 4902) {
+            setWalletAddress(account);
+            setWalletChainId(chainId);
+            localStorage.setItem("probon-wallet-address", account);
+            localStorage.setItem("probon-wallet-chain", chainId);
+            setNotice("Wallet connected, but the network switch was cancelled or failed. Switch to Base Sepolia (Chain ID 84532) to continue.");
+            return;
+          }
+          try {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [{
+                chainId: "0x14a34",
+                chainName: "Base Sepolia",
+                nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+                rpcUrls: ["https://sepolia.base.org"],
+                blockExplorerUrls: ["https://sepolia.basescan.org"]
+              }]
+            });
+          } catch {
+            setNotice("Could not add Base Sepolia to your wallet. Add the network manually, then reconnect.");
+            return;
+          }
+        }
+        chain = await window.ethereum.request({ method: "eth_chainId" });
+        chainId = typeof chain === "string" ? chain.toLowerCase() : "";
+      }
+      if (chainId !== "0x14a34") {
+        setNotice("Your wallet has not switched to Base Sepolia yet. Please reconnect after switching networks.");
         return;
       }
       if (isSupabaseConfigured && supabase) {
