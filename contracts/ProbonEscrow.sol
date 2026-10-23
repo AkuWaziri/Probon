@@ -2,13 +2,13 @@
 pragma solidity ^0.8.24;
 
 /// @title ProbonEscrow
-/// @notice Native-asset escrow for Probon campaigns on Arc Mainnet.
-/// @dev Arc's native asset is USDC. Funding and the 5% fee are handled atomically:
-///      if fee transfer fails, the entire campaign creation transaction reverts.
+/// @notice ERC-20 USDC escrow for Probon creator campaigns on Base.
+/// @dev The creator must approve this contract for budget + the 5% platform fee before creation.
 contract ProbonEscrow {
     uint256 public constant PLATFORM_FEE_BPS = 500;
     uint256 public constant BPS_DENOMINATOR = 10_000;
 
+    IERC20Minimal public immutable usdc;
     address public immutable feeRecipient;
     uint256 public nextCampaignId = 1;
     uint256 private unlocked = 1;
@@ -31,15 +31,7 @@ contract ProbonEscrow {
     mapping(uint256 => mapping(address => ParticipationStatus)) public participationStatus;
     mapping(uint256 => mapping(address => string)) public submissionUrl;
 
-    event CampaignCreated(
-        uint256 indexed campaignId,
-        address indexed creator,
-        uint256 budget,
-        uint256 platformFee,
-        uint256 rewardPerParticipant,
-        uint256 slots,
-        uint64 deadline
-    );
+    event CampaignCreated(uint256 indexed campaignId, address indexed creator, uint256 budget, uint256 platformFee, uint256 rewardPerParticipant, uint256 slots, uint64 deadline);
     event ParticipantJoined(uint256 indexed campaignId, address indexed participant);
     event SubmissionRecorded(uint256 indexed campaignId, address indexed participant, string url);
     event ParticipantPaid(uint256 indexed campaignId, address indexed participant, uint256 amount);
@@ -65,8 +57,9 @@ contract ProbonEscrow {
     error TransferFailed();
     error ReentrantCall();
 
-    constructor(address feeRecipient_) {
-        if (feeRecipient_ == address(0)) revert ZeroAddress();
+    constructor(address usdc_, address feeRecipient_) {
+        if (usdc_ == address(0) || feeRecipient_ == address(0)) revert ZeroAddress();
+        usdc = IERC20Minimal(usdc_);
         feeRecipient = feeRecipient_;
     }
 
@@ -77,20 +70,20 @@ contract ProbonEscrow {
         unlocked = 1;
     }
 
-    function createCampaign(
-        uint256 budget,
-        uint256 rewardPerParticipant,
-        uint256 slots,
-        uint64 deadline
-    ) external payable nonReentrant returns (uint256 campaignId) {
+    function createCampaign(uint256 budget, uint256 rewardPerParticipant, uint256 slots, uint64 deadline)
+        external returns (uint256 campaignId)
+    {
         if (budget == 0 || rewardPerParticipant == 0) revert InvalidAmount();
         if (slots == 0) revert InvalidSlots();
-        if (uint256(rewardPerParticipant) > budget / slots) revert InvalidAmount();
+        if (rewardPerParticipant > budget / slots) revert InvalidAmount();
         if (deadline <= block.timestamp) revert InvalidDeadline();
 
-        uint256 fee = budget / (BPS_DENOMINATOR / PLATFORM_FEE_BPS);
+        uint256 fee = budget * PLATFORM_FEE_BPS / BPS_DENOMINATOR;
         uint256 expected = budget + fee;
-        if (msg.value != expected) revert IncorrectFunding(expected, msg.value);
+        uint256 beforeBalance = usdc.balanceOf(address(this));
+        if (!usdc.transferFrom(msg.sender, address(this), expected)) revert TransferFailed();
+        uint256 received = usdc.balanceOf(address(this)) - beforeBalance;
+        if (received != expected) revert IncorrectFunding(expected, received);
 
         campaignId = nextCampaignId++;
         campaigns[campaignId] = Campaign({
@@ -105,10 +98,7 @@ contract ProbonEscrow {
             refundClaimed: false
         });
 
-        // Any failure reverts both the campaign record and this entire transaction.
-        (bool feeSent, ) = feeRecipient.call{value: fee}("");
-        if (!feeSent) revert TransferFailed();
-
+        if (!usdc.transfer(feeRecipient, fee)) revert TransferFailed();
         emit CampaignCreated(campaignId, msg.sender, budget, fee, rewardPerParticipant, slots, deadline);
     }
 
@@ -119,7 +109,6 @@ contract ProbonEscrow {
         if (msg.sender == c.creator) revert CreatorCannotJoin();
         if (c.joinedCount >= c.slots) revert CampaignFull();
         if (participationStatus[campaignId][msg.sender] != ParticipationStatus.None) revert AlreadyParticipated();
-
         participationStatus[campaignId][msg.sender] = ParticipationStatus.Joined;
         c.joinedCount += 1;
         emit ParticipantJoined(campaignId, msg.sender);
@@ -130,35 +119,24 @@ contract ProbonEscrow {
         if (c.creator == address(0)) revert InvalidCampaign();
         if (block.timestamp >= c.deadline || c.refundClaimed) revert CampaignClosed();
         if (bytes(url).length == 0) revert EmptySubmission();
-        if (participationStatus[campaignId][msg.sender] != ParticipationStatus.Joined) {
-            revert InvalidParticipationState();
-        }
-
+        if (participationStatus[campaignId][msg.sender] != ParticipationStatus.Joined) revert InvalidParticipationState();
         participationStatus[campaignId][msg.sender] = ParticipationStatus.Submitted;
         submissionUrl[campaignId][msg.sender] = url;
         emit SubmissionRecorded(campaignId, msg.sender, url);
     }
 
-    /// @notice Approving a submission pays the participant immediately.
     function approveSubmission(uint256 campaignId, address participant) external nonReentrant {
         Campaign storage c = campaigns[campaignId];
         if (c.creator == address(0)) revert InvalidCampaign();
         if (msg.sender != c.creator) revert NotCampaignCreator();
-        if (block.timestamp < c.deadline && participationStatus[campaignId][participant] != ParticipationStatus.Submitted) {
-            revert InvalidParticipationState();
-        }
-        if (participationStatus[campaignId][participant] != ParticipationStatus.Submitted) {
-            revert InvalidParticipationState();
-        }
+        if (participationStatus[campaignId][participant] != ParticipationStatus.Submitted) revert InvalidParticipationState();
         _finalizeAndPay(campaignId, participant, c);
     }
 
-    /// @notice A creator can reject submitted work at any time, or finalize a non-submission after deadline.
     function rejectSubmission(uint256 campaignId, address participant) external {
         Campaign storage c = campaigns[campaignId];
         if (c.creator == address(0)) revert InvalidCampaign();
         if (msg.sender != c.creator) revert NotCampaignCreator();
-
         ParticipationStatus status = participationStatus[campaignId][participant];
         if (status == ParticipationStatus.Submitted) {
             // Submitted work may be rejected after review, before or after the deadline.
@@ -167,7 +145,6 @@ contract ProbonEscrow {
         } else {
             revert InvalidParticipationState();
         }
-
         participationStatus[campaignId][participant] = ParticipationStatus.Rejected;
         c.finalizedCount += 1;
         emit SubmissionRejected(campaignId, participant);
@@ -185,11 +162,7 @@ contract ProbonEscrow {
         uint256 amount = c.remainingBudget;
         c.remainingBudget = 0;
         emit CampaignRefunded(campaignId, c.creator, amount);
-
-        if (amount > 0) {
-            (bool sent, ) = c.creator.call{value: amount}("");
-            if (!sent) revert TransferFailed();
-        }
+        if (amount > 0 && !usdc.transfer(c.creator, amount)) revert TransferFailed();
     }
 
     function _finalizeAndPay(uint256 campaignId, address participant, Campaign storage c) private {
@@ -199,12 +172,13 @@ contract ProbonEscrow {
         if (c.remainingBudget < amount) revert InvalidAmount();
         c.remainingBudget -= amount;
         emit ParticipantPaid(campaignId, participant, amount);
-
-        (bool sent, ) = participant.call{value: amount}("");
-        if (!sent) revert TransferFailed();
+        if (!usdc.transfer(participant, amount)) revert TransferFailed();
     }
+}
 
-    receive() external payable {
-        revert IncorrectFunding(0, msg.value);
-    }
+interface IERC20Minimal {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
 }
