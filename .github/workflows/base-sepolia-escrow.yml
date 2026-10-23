@@ -105,11 +105,11 @@ jobs:
           echo "contract_address=$ADDRESS" >> "$GITHUB_OUTPUT"
           echo "transaction_hash=$TX" >> "$GITHUB_OUTPUT"
           echo "## Probon Base Sepolia deployment" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Contract: `$ADDRESS`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Transaction: `$TX`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Chain ID: 84532" >> "$GITHUB_STEP_SUMMARY"
-          echo "- USDC: `$USDC_ADDRESS`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Fee recipient: `$FEE_RECIPIENT`" >> "$GITHUB_STEP_SUMMARY"
+          printf '- Contract: %s\n' "$ADDRESS" >> "$GITHUB_STEP_SUMMARY"
+          printf '- Transaction: %s\n' "$TX" >> "$GITHUB_STEP_SUMMARY"
+          printf '- Chain ID: 84532\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '- USDC: %s\n' "$USDC_ADDRESS" >> "$GITHUB_STEP_SUMMARY"
+          printf '- Fee recipient: %s\n' "$FEE_RECIPIENT" >> "$GITHUB_STEP_SUMMARY"
       - name: Save deployment details
         if: always()
         uses: actions/upload-artifact@v4
