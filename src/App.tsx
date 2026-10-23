@@ -348,7 +348,7 @@ function App() {
   };
   return <div className="app-shell">
     <aside className={`sidebar ${mobileOpen?"sidebar-open":""}`}>
-      <button className="brand-lockup" onClick={()=>setPageTo("Explore")} aria-label="Probon home"><span className="brand-symbol">p<span>.</span></span><span className="brand-name">probon</span></button>
+      <button className="brand-lockup" onClick={()=>setPageTo("Explore")} aria-label="Probon home"><img className="brand-logo" src="/probon-logo.svg" alt="" /><span className="brand-name">probon</span></button>
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <div className="nav-list">{navItems.map(item=>{const Icon=item.icon; return <button key={item.label} className={`nav-item ${page===item.label?"selected":""}`} onClick={()=>setPageTo(item.label)}><Icon size={18} strokeWidth={1.8}/><span>{item.label}</span>{item.label==="My participation"&&participations.length>0&&<span className="nav-count">{participations.length}</span>}{item.label==="Create campaign"&&<span className="nav-plus"><Plus size={13}/></span>}</button>;})}<a className="nav-item muted-nav" href="https://t.me/Extraholds" target="_blank" rel="noopener noreferrer"><CircleHelp size={18}/><span>Help &amp; support</span><ExternalLink className="support-link-icon" size={13}/></a></div>
       <div className="sidebar-bottom">
