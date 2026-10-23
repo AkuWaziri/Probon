@@ -93,8 +93,8 @@ jobs:
             --rpc-url "$BASE_SEPOLIA_RPC_URL" \
             --private-key "$DEPLOYER_PRIVATE_KEY" \
             --broadcast \
-            --constructor-args "$USDC_ADDRESS" "$FEE_RECIPIENT" \
-            --json | tee deployment.json
+            --json \
+            --constructor-args "$USDC_ADDRESS" "$FEE_RECIPIENT" | tee deployment.json
           ADDRESS=$(jq -r '.deployedTo // .deployed_to // empty' deployment.json)
           TX=$(jq -r '.transactionHash // .transaction_hash // empty' deployment.json)
           if [[ ! "$ADDRESS" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
