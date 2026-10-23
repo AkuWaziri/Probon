@@ -206,3 +206,5 @@
   .stat-note{display:none}
 }
 
+
+.connected-wallet-card{display:grid;justify-items:center;gap:10px;margin:0 auto 8px;padding:18px;border:1px solid #d9e5ff;border-radius:12px;background:#f7f9ff}.connected-wallet-status{display:flex;align-items:center;gap:6px;color:#16845b;font-size:9px;font-weight:800;letter-spacing:.8px}.connected-wallet-card>strong{font:800 18px Manrope,sans-serif;letter-spacing:.2px;color:#26223a}.wallet-network-status{font-size:11px;color:#777185}.wallet-card-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:9px;margin-top:5px}.wallet-card-actions button{min-height:36px}
