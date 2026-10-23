@@ -103,3 +103,16 @@ export async function reviewEscrowSubmission(campaignId: string, participant: st
   if (receipt.status !== "success") throw new Error("Review transaction failed on Base Sepolia.");
   return hash;
 }
+
+export async function refundEscrowCampaign(campaignId: string): Promise<Hash> {
+  const client = await walletClient();
+  const [account] = await client.getAddresses();
+  if (!account) throw new Error("Connect the campaign creator wallet before requesting a refund.");
+  const hash = await client.writeContract({
+    account, chain: baseSepolia, address: PROBON_ESCROW_ADDRESS as Address,
+    abi: probonEscrowAbi, functionName: "refundRemainingBudget", args: [BigInt(campaignId)]
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("Refund transaction failed on Base Sepolia.");
+  return hash;
+}
