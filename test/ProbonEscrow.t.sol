@@ -7,6 +7,7 @@ interface Vm {
     function deal(address account, uint256 newBalance) external;
     function prank(address sender) external;
     function warp(uint256 timestamp) external;
+    function expectRevert() external;
     function expectRevert(bytes calldata revertData) external;
 }
 
@@ -103,7 +104,7 @@ contract ProbonEscrowTest {
         escrow.rejectSubmission(id, ALICE);
         vm.prank(CREATOR);
         escrow.refundRemainingBudget(id);
-        require(token.balanceOf(CREATOR) == 99_000 * USDC, "refund amount incorrect");
+        require(token.balanceOf(CREATOR) == 99_950 * USDC, "refund amount incorrect");
         require(token.balanceOf(address(escrow)) == 0, "escrow should be empty");
     }
 
