@@ -13,7 +13,7 @@ declare global { interface Window { ethereum?: { request: (args: { method: strin
 
 type Channel = "X / Twitter" | "TikTok" | "Telegram" | "WhatsApp" | "Video" | "Blog" | "Medium" | "Other";
 type Campaign = {
-  id: string; brand: string; initials: string; category: string; title: string; description: string;
+  id: string; contractCampaignId?: string; escrowTxHash?: string; brand: string; initials: string; category: string; title: string; description: string;
   channel: Channel; reward: number; budget: number; slots: number; joined: number; deadline: string;
   status: "Active" | "Upcoming" | "Ended" | "Under review" | "Completed"; accent: string; logo?: string;
   requirements: string; createdByMe?: boolean; creatorWallet?: string; creatorEmail?: string; creatorTelegram?: string;
@@ -338,9 +338,11 @@ function App() {
         platform_fee_amount: budget * 0.05,
         slots_total: slots,
         deadline,
-        status: "upcoming",
+        status: "active",
         requirements: createForm.requirements,
-        funding_status: "pending"
+        funding_status: "funded",
+        escrow_campaign_id: escrowResult.campaignId,
+        escrow_tx_hash: escrowResult.txHash
       }).select("*").single();
       if (error || !data) {
         setNotice("Campaign draft was not saved to the shared database. Check your wallet sign-in and database policies, then try again.");
