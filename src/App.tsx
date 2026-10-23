@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
-import { createEscrowCampaign } from "./lib/escrowTransactions";
+import { createEscrowCampaign, joinEscrowCampaign, submitEscrowWork } from "./lib/escrowTransactions";
 import {
   ArrowRight, ArrowUpRight, BadgeCheck, Bell, BookOpen,
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
@@ -259,21 +259,25 @@ function App() {
       setNotice("Wallet connection or sign-in was cancelled or failed. No funds were moved.");
     }
   };
-  const joinCampaign = (c:Campaign) => {
+  const joinCampaign = async (c:Campaign) => {
     if(!walletAddress) { setNotice("Connect your Base wallet first. Your wallet address is recorded as the participant identity."); return; }
     if(walletChainId!=="0x14a34") { setNotice("Switch your wallet to Base Sepolia (Chain ID 84532) before joining."); return; }
     if(c.status!=="Active") { setNotice("This campaign is not accepting participants."); return; }
+    if(!c.contractCampaignId) { setNotice("This campaign is a sample or legacy listing and is not connected to the Base Sepolia escrow yet."); return; }
     if(new Date(c.deadline+" 23:59:59").getTime() < Date.now()) { setNotice("The deadline has passed. This campaign is closed."); return; }
     if(c.joined>=c.slots) { setNotice("All creator slots are filled. This campaign is closed to new participants."); return; }
     if(ownsCampaign(c)) { setNotice("Campaign creators cannot join their own campaigns as participants."); return; }
     if(joinedIds.has(c.id)) { setNotice("You have already joined this campaign. Each profile can participate only once."); return; }
+    let joinTx: string;
+    try { setNotice("Confirm the on-chain join transaction in your wallet."); joinTx = await joinEscrowCampaign(c.contractCampaignId); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Joining failed. No participation was recorded."); return; }
     const nextJoined = c.joined + 1;
     const promoPost = buildParticipantPost(c,walletAddress);
     setParticipations(p=>[...p,{campaignId:c.id,walletAddress,promoPost,status:"Joined",joinedAt:new Date().toISOString()}]);
     setCampaigns(cs=>cs.map(x=>x.id===c.id?{...x,joined:Math.min(x.slots,nextJoined)}:x));
-    setSelected(null); setJoinedPostPopup({campaign:c,post:promoPost}); setNotice(nextJoined>=c.slots ? "Campaign joined. All slots are now filled; no one else can join." : "Campaign joined successfully. Your one-time Probon promotion post is ready."); setPage("My participation");
+    setSelected(null); setJoinedPostPopup({campaign:c,post:promoPost}); setNotice("Joined on Base Sepolia. Transaction: " + joinTx + ". Your one-time Probon promotion post is ready."); setPage("My participation");
   };
-  const submitLink = () => {
+  const submitLink = async () => {
     if(!selected) return;
     const p=participations.find(x=>x.campaignId===selected.id && x.walletAddress?.toLowerCase()===walletAddress.toLowerCase());
     if(!p || p.status!=="Joined") { setNotice("A submission has already been recorded for this campaign."); return; }
@@ -285,8 +289,12 @@ function App() {
         if(!["http:","https:"].includes(u.protocol)) throw new Error();
       }
     } catch { setNotice("Enter valid public URLs for both the Probon post and campaign work, beginning with https://"); return; }
+    if(!selected.contractCampaignId) { setNotice("This campaign is not connected to the escrow contract."); return; }
+    let submitTx: string;
+    try { setNotice("Confirm the work submission transaction in your wallet."); submitTx = await submitEscrowWork(selected.contractCampaignId, submissionLink); }
+    catch (error) { setNotice(error instanceof Error ? error.message : "Submission failed. No on-chain submission was recorded."); return; }
     setParticipations(ps=>ps.map(x=>x.campaignId===selected.id && x.walletAddress?.toLowerCase()===walletAddress.toLowerCase()?{...x,promoLink:promoToSubmit,link:submissionLink,status:"Submitted"}:x));
-    setSelected(null); setSubmissionLink(""); setSubmissionPromoLink(""); setNotice("Both links were submitted. The Probon post link and campaign work link are locked and cannot be replaced, even if the review is rejected.");
+    setSelected(null); setSubmissionLink(""); setSubmissionPromoLink(""); setNotice("Work submission recorded on Base Sepolia. Transaction: " + submitTx + ". Both links are locked and cannot be replaced.");
   };
   const createCampaign = async (e:FormEvent) => {
     e.preventDefault();
