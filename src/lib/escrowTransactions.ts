@@ -3,7 +3,7 @@ import {
   parseUnits, type Address, type Hash
 } from "viem";
 import { baseSepolia } from "viem/chains";
-import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_USDC, PROBON_ESCROW_ADDRESS } from "./baseSepoliaEscrow";
+import { BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_USDC, PROBON_ESCROW_ADDRESS } from "./baseSepoliaEscrow";
 import { erc20Abi, probonEscrowAbi } from "./baseSepoliaEscrowAbi";
 
 type InjectedProvider = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
