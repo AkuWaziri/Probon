@@ -1,0 +1,105 @@
+import {
+  createPublicClient, createWalletClient, custom, decodeEventLog, http,
+  parseUnits, type Address, type Hash
+} from "viem";
+import { baseSepolia } from "viem/chains";
+import { BASE_SEPOLIA_CHAIN_ID, BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_USDC, PROBON_ESCROW_ADDRESS } from "./baseSepoliaEscrow";
+import { erc20Abi, probonEscrowAbi } from "./baseSepoliaEscrowAbi";
+
+type InjectedProvider = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
+const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
+
+async function walletClient() {
+  const provider = window.ethereum as InjectedProvider | undefined;
+  if (!provider) throw new Error("Install a browser wallet to use Probon on Base Sepolia.");
+  const chainId = String(await provider.request({ method: "eth_chainId" })).toLowerCase();
+  if (chainId !== "0x14a34") {
+    try {
+      await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] });
+    } catch (switchError) {
+      const code = (switchError as { code?: number }).code;
+      if (code !== 4902) throw new Error("Switch your wallet to Base Sepolia to continue.");
+      await provider.request({ method: "wallet_addEthereumChain", params: [{
+        chainId: "0x14a34",
+        chainName: "Base Sepolia",
+        nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+        rpcUrls: [BASE_SEPOLIA_RPC_URL],
+        blockExplorerUrls: ["https://sepolia.basescan.org"]
+      }] });
+    }
+  }
+  return createWalletClient({ chain: baseSepolia, transport: custom(provider as never) });
+}
+
+export async function createEscrowCampaign(args: {
+  budgetUsdc: number; rewardUsdc: number; slots: number; deadline: string;
+}): Promise<{ campaignId: string; txHash: Hash }> {
+  const client = await walletClient();
+  const [account] = await client.getAddresses();
+  if (!account) throw new Error("Connect your wallet before creating a campaign.");
+  const budget = parseUnits(args.budgetUsdc.toFixed(6), 6);
+  const reward = parseUnits(args.rewardUsdc.toFixed(6), 6);
+  const total = budget + budget * 500n / 10000n;
+  const allowance = await publicClient.readContract({
+    address: BASE_SEPOLIA_USDC as Address, abi: erc20Abi, functionName: "allowance",
+    args: [account, PROBON_ESCROW_ADDRESS as Address]
+  });
+  if (allowance < total) {
+    const approveHash = await client.writeContract({
+      account, chain: baseSepolia, address: BASE_SEPOLIA_USDC as Address, abi: erc20Abi,
+      functionName: "approve", args: [PROBON_ESCROW_ADDRESS as Address, total]
+    });
+    await publicClient.waitForTransactionReceipt({ hash: approveHash });
+  }
+  const deadlineSeconds = BigInt(Math.floor(new Date(args.deadline + "T23:59:59").getTime() / 1000));
+  const hash = await client.writeContract({
+    account, chain: baseSepolia, address: PROBON_ESCROW_ADDRESS as Address, abi: probonEscrowAbi,
+    functionName: "createCampaign", args: [budget, reward, BigInt(args.slots), deadlineSeconds]
+  });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("Campaign funding transaction failed on Base Sepolia.");
+  let campaignId: bigint | undefined;
+  for (const log of receipt.logs) {
+    try {
+      const decoded = decodeEventLog({ abi: probonEscrowAbi, eventName: "CampaignCreated", data: log.data, topics: log.topics });
+      campaignId = decoded.args.campaignId;
+      break;
+    } catch { /* unrelated contract event */ }
+  }
+  if (campaignId === undefined) throw new Error("Campaign transaction succeeded, but its on-chain campaign ID could not be read.");
+  return { campaignId: campaignId.toString(), txHash: hash };
+}
+
+export async function joinEscrowCampaign(campaignId: string): Promise<Hash> {
+  const client = await walletClient();
+  const [account] = await client.getAddresses();
+  if (!account) throw new Error("Connect your wallet before joining.");
+  const hash = await client.writeContract({ account, chain: baseSepolia, address: PROBON_ESCROW_ADDRESS as Address, abi: probonEscrowAbi, functionName: "joinCampaign", args: [BigInt(campaignId)] });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("Join transaction failed on Base Sepolia.");
+  return hash;
+}
+
+export async function submitEscrowWork(campaignId: string, url: string): Promise<Hash> {
+  const client = await walletClient();
+  const [account] = await client.getAddresses();
+  if (!account) throw new Error("Connect your wallet before submitting work.");
+  const hash = await client.writeContract({ account, chain: baseSepolia, address: PROBON_ESCROW_ADDRESS as Address, abi: probonEscrowAbi, functionName: "submitWork", args: [BigInt(campaignId), url] });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("Submission transaction failed on Base Sepolia.");
+  return hash;
+}
+
+export async function reviewEscrowSubmission(campaignId: string, participant: string, approved: boolean): Promise<Hash> {
+  const client = await walletClient();
+  const [account] = await client.getAddresses();
+  if (!account) throw new Error("Connect the campaign creator wallet before reviewing work.");
+  const hash = await client.writeContract({
+    account, chain: baseSepolia, address: PROBON_ESCROW_ADDRESS as Address, abi: probonEscrowAbi,
+    functionName: approved ? "approveSubmission" : "rejectSubmission",
+    args: [BigInt(campaignId), participant as Address]
+  } as never);
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  if (receipt.status !== "success") throw new Error("Review transaction failed on Base Sepolia.");
+  return hash;
+}
