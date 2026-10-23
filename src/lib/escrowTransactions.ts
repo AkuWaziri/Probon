@@ -6,6 +6,19 @@ import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_RPC_URL, BASE_SEPOLIA_USDC, PROBON_ESCROW_ADDRESS } from "./baseSepoliaEscrow";
 import { erc20Abi, probonEscrowAbi } from "./baseSepoliaEscrowAbi";
 
+/** Converts wallet/viem failures into concise UI-safe messages. Never expose raw RPC request data. */
+export function getTransactionErrorMessage(error: unknown, action: string): string {
+  const candidate = error as { code?: number | string; shortMessage?: string; message?: string; cause?: { code?: number | string; message?: string; cause?: { code?: number | string; message?: string } } } | null;
+  const text = [candidate?.message, candidate?.shortMessage, candidate?.cause?.message, candidate?.cause?.cause?.message].filter(Boolean).join(" ").toLowerCase();
+  const code = candidate?.code ?? candidate?.cause?.code ?? candidate?.cause?.cause?.code;
+  if (code === 4001 || code === "4001" || code === "ACTION_REJECTED" || /user rejected|user denied|request rejected|action_rejected|transaction was rejected/.test(text)) {
+    return "Transaction cancelled in your wallet. Nothing was submitted or marked as funded, and no submission status was changed.";
+  }
+  if (/insufficient funds|insufficient balance/.test(text)) return "Your wallet does not have enough Base Sepolia ETH for the network fee. No campaign or submission status was changed.";
+  if (/chain.?id|wrong network|unsupported chain/.test(text)) return "Switch your wallet to Base Sepolia and try again. No campaign or submission status was changed.";
+  return action + " could not be completed. Check your wallet and Base Sepolia connection, then try again. No campaign or submission status was changed.";
+}
+
 type InjectedProvider = { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
 const publicClient = createPublicClient({ chain: baseSepolia, transport: http(BASE_SEPOLIA_RPC_URL) });
 
