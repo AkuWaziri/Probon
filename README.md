@@ -1,23 +1,39 @@
 # Probon
 
-Probon is a creator-campaign marketplace being prepared for Arc Mainnet.
+Probon is a creator-campaign marketplace. The `base-sepolia-usdc-migration` branch prepares the escrow contract for Base Sepolia using ERC-20 USDC.
 
-## Stack
+## Base Sepolia test configuration
 
-- Vite + React + TypeScript
-- Supabase Auth and Postgres with row-level security
-- Arc Mainnet (chain ID 5042) for campaign escrow and payouts
+- Network: Base Sepolia
+- Chain ID: 84532
+- RPC: https://sepolia.base.org
+- Explorer: https://sepolia.basescan.org
+- USDC test token: 0x036CbD53842c5426634e7929541eC2318f3dCF7e (6 decimals)
+- Gas token: test ETH
 
-## Supabase setup
+## Contract build and tests
 
-1. In Supabase, enable **Authentication → Sign In / Providers → Web3 Wallet → Ethereum**.
-2. Add the production Probon URL and local development URL to Authentication URL configuration / allowed redirect URLs.
-3. Apply `supabase/migrations/202610200001_initial_marketplace.sql` in the Supabase SQL Editor, or use the Supabase CLI migration workflow.
-4. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel for Production, Preview, and Development. These are browser-public values; never use a service-role key in a `VITE_*` variable.
-5. Test row-level security with two separate wallets before enabling real campaigns.
+Install Foundry, then run from the repository root:
 
-## Launch status
+```sh
+forge build --sizes
+forge test -vvv
+```
 
-The migration establishes the initial persistent schema and row-level security baseline. It does not deploy an Arc escrow contract, confirm deposits, send notifications, or execute payouts. Real-money features must remain disabled until the escrow contract and transaction verification flow are implemented and tested.
+The tests use a local mock ERC-20 with six decimals. They do not send transactions to Base Sepolia.
 
-The campaign budget and 5% platform fee must be handled atomically by the escrow contract; a failed transaction must not leave partial transfers. The platform fee recipient is `0x5Bce25397eEfbc76f6479e6838c00a5115dbEA4c`.
+## Deploy to Base Sepolia
+
+1. Ensure the contract tests pass and review the Solidity source.
+2. In GitHub repository settings, add Actions secrets:
+   - `DEPLOYER_PRIVATE_KEY`: private key of the testnet deployer only; never commit it or paste it into chat.
+   - `EXPECTED_DEPLOYER_ADDRESS`: public address corresponding to that key.
+   - Optional `BASE_SEPOLIA_RPC_URL`: defaults to the public Base Sepolia RPC.
+3. Ensure the deployer wallet has Base Sepolia test ETH for gas.
+4. Open Actions → **Probon Base Sepolia escrow** → Run workflow.
+5. Enter `DEPLOY`, the published Base Sepolia USDC address, and the intended platform fee recipient wallet.
+6. Confirm the deployment summary includes a successful transaction and contract address; verify it on Base Sepolia Explorer.
+
+## Important status
+
+This branch migrates the escrow contract and adds a gated testnet deployment workflow. The existing frontend currently saves campaign drafts and participation UI state without invoking this contract. Do not treat a campaign draft, join, submission, or approval shown in the UI as an on-chain transaction. The frontend must be integrated with the deployed contract and the database's campaign records before end-to-end campaign use is enabled. Real-money Base Mainnet use requires a separate review and deployment.
