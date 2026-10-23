@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import { createEscrowCampaign } from "./lib/escrowTransactions";
 import {
   ArrowRight, ArrowUpRight, BadgeCheck, Bell, BookOpen,
   BriefcaseBusiness, Check, ChevronDown, CircleHelp, Clock3, Compass,
@@ -208,11 +209,11 @@ function App() {
       const account = Array.isArray(accounts) ? accounts[0] : "";
       if (typeof account !== "string" || !account) { setNotice("Wallet did not return an account."); return; }
       const chainId = typeof chain === "string" ? chain.toLowerCase() : "";
-      if (chainId !== "0x2105") {
+      if (chainId !== "0x14a34") {
         setWalletAddress(account); setWalletChainId(chainId);
         localStorage.setItem("probon-wallet-address", account);
         localStorage.setItem("probon-wallet-chain", chainId);
-        setNotice("Wallet connected, but it is not on Base Mainnet (Chain ID 8453). Switch networks before continuing.");
+        setNotice("Wallet connected, but it is not on Base Sepolia (Chain ID 84532). Switch networks before continuing.");
         return;
       }
       if (isSupabaseConfigured && supabase) {
@@ -247,7 +248,7 @@ function App() {
         setWalletAddress(account); setWalletChainId(chainId);
         localStorage.setItem("probon-wallet-address", account);
         localStorage.setItem("probon-wallet-chain", chainId);
-        setNotice("Wallet verified. You are signed in to Probon on Base Mainnet.");
+        setNotice("Wallet verified. You are signed in to Probon on Base Sepolia.");
       } else {
         setWalletAddress(account); setWalletChainId(chainId);
         localStorage.setItem("probon-wallet-address", account);
@@ -260,7 +261,7 @@ function App() {
   };
   const joinCampaign = (c:Campaign) => {
     if(!walletAddress) { setNotice("Connect your Base wallet first. Your wallet address is recorded as the participant identity."); return; }
-    if(walletChainId!=="0x2105") { setNotice("Switch your wallet to Base Mainnet (Chain ID 8453) before joining."); return; }
+    if(walletChainId!=="0x2105") { setNotice("Switch your wallet to Base Sepolia (Chain ID 8453) before joining."); return; }
     if(c.status!=="Active") { setNotice("This campaign is not accepting participants."); return; }
     if(new Date(c.deadline+" 23:59:59").getTime() < Date.now()) { setNotice("The deadline has passed. This campaign is closed."); return; }
     if(c.joined>=c.slots) { setNotice("All creator slots are filled. This campaign is closed to new participants."); return; }
@@ -289,7 +290,7 @@ function App() {
   };
   const createCampaign = async (e:FormEvent) => {
     e.preventDefault();
-    if (!walletAddress || walletChainId !== "0x2105") { setNotice("Connect the creator wallet on Base Mainnet before creating or editing a campaign."); return; }
+    if (!walletAddress || walletChainId !== "0x14a34") { setNotice("Connect the creator wallet on Base Sepolia before creating or editing a campaign."); return; }
     if (editingCampaignId) {
       const existing = campaigns.find(c => c.id === editingCampaignId);
       if (!existing || !ownsCampaign(existing)) { setNotice("Only the wallet that created this campaign can edit it."); setShowCreate(false); setEditingCampaignId(null); return; }
@@ -303,7 +304,21 @@ function App() {
     const reward=Number(createForm.reward), slots=Number(createForm.slots);
     if(!createForm.brand.trim() || !createForm.title.trim() || !Number.isFinite(reward) || reward<=0 || !Number.isInteger(slots) || slots<1) { setNotice("Complete all required fields with a valid reward and number of slots."); return; }
     if(createForm.creatorEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.creatorEmail.trim())) { setNotice("Enter a valid creator notification email or leave it blank."); return; }
-    let campaign:Campaign={id:"local-"+Date.now(),brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:"Upcoming",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
+    let escrowResult: { campaignId: string; txHash: string };
+    try {
+      setNotice("Confirm USDC approval and campaign funding in your wallet. The campaign will not be listed as funded until the transaction succeeds.");
+      escrowResult = await createEscrowCampaign({
+        budgetUsdc: reward * slots,
+        rewardUsdc: reward,
+        slots,
+        deadline: createForm.deadline
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The on-chain campaign transaction failed.";
+      setNotice(message + " No campaign was marked as funded.");
+      return;
+    }
+    let campaign:Campaign={id:"chain-"+escrowResult.campaignId,brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:"Active",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
     if (isSupabaseConfigured && supabase) {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) { setNotice("Sign in with your Base wallet before saving a shared campaign draft."); return; }
@@ -343,7 +358,7 @@ function App() {
       }
     }
     setCampaigns(cs=>[campaign,...cs]); setShowCreate(false); setPage("My campaigns");
-    setNotice(isSupabaseConfigured ? "Campaign draft saved to Probon. It is not public or joinable until Base USDC escrow funding is confirmed." : "Campaign draft created locally. Configure Supabase to share it across devices.");
+    setNotice("Campaign funded on Base Sepolia. On-chain campaign ID: " + escrowResult.campaignId + ". Transaction: " + escrowResult.txHash);
     setCreateForm({brand:"",title:"",description:"",category:"Web3",channel:"X / Twitter",reward:"50",slots:"10",deadline:"2026-11-05",requirements:"Original work. Include a public link and follow the campaign brief.",logo:"",creatorEmail:"",creatorTelegram:""});
   };
   return <div className="app-shell">
@@ -352,7 +367,7 @@ function App() {
       <div className="workspace-label">WORKSPACE <ChevronDown size={13}/></div>
       <div className="nav-list">{navItems.map(item=>{const Icon=item.icon; return <button key={item.label} className={`nav-item ${page===item.label?"selected":""}`} onClick={()=>setPageTo(item.label)}><Icon size={18} strokeWidth={1.8}/><span>{item.label}</span>{item.label==="My participation"&&participations.length>0&&<span className="nav-count">{participations.length}</span>}{item.label==="Create campaign"&&<span className="nav-plus"><Plus size={13}/></span>}</button>;})}<a className="nav-item muted-nav" href="https://t.me/Extraholds" target="_blank" rel="noopener noreferrer"><CircleHelp size={18}/><span>Help &amp; support</span><ExternalLink className="support-link-icon" size={13}/></a></div>
       <div className="sidebar-bottom">
-        <div className="profile-row"><div className="avatar">G</div><div className="profile-copy"><strong>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Guest profile"}</strong><span>{walletAddress?walletChainId==="0x2105"?"Base Mainnet connected":"Switch to Base Mainnet":"Connect wallet to continue"}</span></div><MoreHorizontal size={19}/></div>
+        <div className="profile-row"><div className="avatar">G</div><div className="profile-copy"><strong>{walletAddress?`${walletAddress.slice(0,6)}…${walletAddress.slice(-4)}`:"Guest profile"}</strong><span>{walletAddress?walletChainId==="0x14a34"?"Base Sepolia connected":"Switch to Base Sepolia":"Connect wallet to continue"}</span></div><MoreHorizontal size={19}/></div>
       </div>
     </aside>
     {mobileOpen&&<button className="mobile-scrim" onClick={()=>setMobileOpen(false)} aria-label="Close menu"/>}
