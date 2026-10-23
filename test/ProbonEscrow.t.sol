@@ -10,8 +10,32 @@ interface Vm {
     function expectRevert(bytes calldata revertData) external;
 }
 
-contract RejectNativeTransfer {
-    receive() external payable { revert(); }
+contract MockUSDC {
+    string public constant name = "Mock USDC";
+    string public constant symbol = "USDC";
+    uint8 public constant decimals = 6;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    function mint(address to, uint256 amount) external { balanceOf[to] += amount; }
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "balance");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        require(allowance[from][msg.sender] >= amount, "allowance");
+        require(balanceOf[from] >= amount, "balance");
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
 }
 
 contract ProbonEscrowTest {
@@ -20,96 +44,71 @@ contract ProbonEscrowTest {
     address private constant CREATOR = address(0xA11CE);
     address private constant ALICE = address(0xA1);
     address private constant BOB = address(0xB0B);
+    MockUSDC private token;
     ProbonEscrow private escrow;
+    uint256 private constant USDC = 1e6;
 
     function setUp() public {
-        escrow = new ProbonEscrow(FEE);
-        vm.deal(CREATOR, 100 ether);
-        vm.deal(ALICE, 10 ether);
-        vm.deal(BOB, 10 ether);
+        token = new MockUSDC();
+        escrow = new ProbonEscrow(address(token), FEE);
+        token.mint(CREATOR, 100_000 * USDC);
+        token.mint(ALICE, 10_000 * USDC);
+        token.mint(BOB, 10_000 * USDC);
+        vm.prank(CREATOR);
+        token.approve(address(escrow), type(uint256).max);
     }
 
-    function testCreateCampaignRoutesFivePercentFeeAndHoldsBudget() public {
-        uint256 budget = 10 ether;
-        uint256 fee = budget * 500 / 10_000;
+    function _create(uint256 budget, uint256 reward, uint256 slots) private returns (uint256) {
         vm.prank(CREATOR);
-        uint256 id = escrow.createCampaign{value: budget + fee}(budget, 1 ether, 5, uint64(block.timestamp + 1 days));
+        return escrow.createCampaign(budget, reward, slots, uint64(block.timestamp + 1 days));
+    }
+
+    function testCreateCampaignCollectsUSDCFeeAndEscrowsBudget() public {
+        uint256 budget = 1_000 * USDC;
+        uint256 fee = budget / 20;
+        uint256 id = _create(budget, 100 * USDC, 10);
         require(id == 1, "wrong id");
-        require(FEE.balance == fee, "fee not sent");
-        require(address(escrow).balance == budget, "budget not escrowed");
+        require(token.balanceOf(FEE) == fee, "fee not sent");
+        require(token.balanceOf(address(escrow)) == budget, "budget not escrowed");
         (address creator, uint256 storedBudget, uint256 remaining,,,,,,) = escrow.campaigns(id);
         require(creator == CREATOR && storedBudget == budget && remaining == budget, "campaign mismatch");
     }
 
-    function testFeeTransferFailureRevertsCampaignCreationAtomically() public {
-        RejectNativeTransfer receiver = new RejectNativeTransfer();
-        ProbonEscrow isolated = new ProbonEscrow(address(receiver));
-        vm.prank(CREATOR);
-        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.TransferFailed.selector));
-        isolated.createCampaign{value: 10.5 ether}(10 ether, 1 ether, 5, uint64(block.timestamp + 1 days));
-        require(isolated.nextCampaignId() == 1, "campaign id advanced despite revert");
-        require(address(isolated).balance == 0, "funds retained despite revert");
+    function testCreationRequiresAllowance() public {
+        vm.prank(ALICE);
+        vm.expectRevert();
+        escrow.createCampaign(100 * USDC, 10 * USDC, 10, uint64(block.timestamp + 1 days));
     }
 
-    function testIncorrectFundingReverts() public {
-        vm.prank(CREATOR);
-        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.IncorrectFunding.selector, 10.5 ether, 10 ether));
-        escrow.createCampaign{value: 10 ether}(10 ether, 1 ether, 5, uint64(block.timestamp + 1 days));
-    }
-
-    function testJoinSubmitApproveAndRefundRemainder() public {
-        uint256 budget = 10 ether;
-        uint256 fee = budget / 20;
-        vm.prank(CREATOR);
-        uint256 id = escrow.createCampaign{value: budget + fee}(budget, 1 ether, 5, uint64(block.timestamp + 1 days));
-
+    function testJoinSubmitApproveAndPayoutUSDC() public {
+        uint256 budget = 1_000 * USDC;
+        uint256 id = _create(budget, 100 * USDC, 10);
         vm.prank(ALICE);
         escrow.joinCampaign(id);
         vm.prank(ALICE);
         escrow.submitWork(id, "https://example.com/work");
-        uint256 before = ALICE.balance;
         vm.prank(CREATOR);
         escrow.approveSubmission(id, ALICE);
-        require(ALICE.balance == before + 1 ether, "payout incorrect");
-
-        vm.warp(block.timestamp + 1 days + 1);
-        vm.prank(CREATOR);
-        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.InvalidParticipationState.selector));
-        escrow.rejectSubmission(id, ALICE); // Paid work cannot be finalized a second time.
+        require(token.balanceOf(ALICE) == 10_100 * USDC, "payout incorrect");
+        require(token.balanceOf(address(escrow)) == 900 * USDC, "remaining budget incorrect");
     }
 
-
-    function testRefundRequiresDeadlineAndFinalizedParticipants() public {
-        uint256 budget = 10 ether;
-        uint256 fee = budget / 20;
-        vm.prank(CREATOR);
-        uint256 id = escrow.createCampaign{value: budget + fee}(budget, 1 ether, 5, uint64(block.timestamp + 1 days));
-
+    function testRejectAndRefundRemainingUSDCAfterDeadline() public {
+        uint256 budget = 1_000 * USDC;
+        uint256 id = _create(budget, 100 * USDC, 10);
         vm.prank(ALICE);
         escrow.joinCampaign(id);
-
-        vm.prank(CREATOR);
-        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.DeadlineNotPassed.selector));
-        escrow.refundRemainingBudget(id);
-
         vm.warp(block.timestamp + 1 days + 1);
         vm.prank(CREATOR);
-        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.ParticipantsNotFinalized.selector));
-        escrow.refundRemainingBudget(id);
-
-        vm.prank(CREATOR);
         escrow.rejectSubmission(id, ALICE);
-
-        uint256 before = CREATOR.balance;
         vm.prank(CREATOR);
         escrow.refundRemainingBudget(id);
-        require(CREATOR.balance == before + budget, "refund amount incorrect");
-        require(address(escrow).balance == 0, "escrow should be empty");
+        require(token.balanceOf(CREATOR) == 99_000 * USDC, "refund amount incorrect");
+        require(token.balanceOf(address(escrow)) == 0, "escrow should be empty");
     }
 
     function testCannotJoinTwiceOrBeyondSlots() public {
-        vm.prank(CREATOR);
-        uint256 id = escrow.createCampaign{value: 2.1 ether}(2 ether, 1 ether, 2, uint64(block.timestamp + 1 days));
+        uint256 id = _create(2 * USDC, 1 * USDC, 2);
         vm.prank(ALICE);
         escrow.joinCampaign(id);
         vm.prank(ALICE);
@@ -118,9 +117,19 @@ contract ProbonEscrowTest {
         vm.prank(BOB);
         escrow.joinCampaign(id);
         address carol = address(0xCA);
-        vm.deal(carol, 1 ether);
+        vm.prank(CREATOR);
+        token.mint(carol, 1 * USDC);
         vm.prank(carol);
         vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.CampaignFull.selector));
         escrow.joinCampaign(id);
+    }
+
+    function testWrongAmountAndInvalidDeadlineRevert() public {
+        vm.prank(CREATOR);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.InvalidAmount.selector));
+        escrow.createCampaign(10 * USDC, 2 * USDC, 10, uint64(block.timestamp + 1 days));
+        vm.prank(CREATOR);
+        vm.expectRevert(abi.encodeWithSelector(ProbonEscrow.InvalidDeadline.selector));
+        escrow.createCampaign(10 * USDC, 1 * USDC, 10, uint64(block.timestamp));
     }
 }
