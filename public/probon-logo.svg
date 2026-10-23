@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+  <defs>
+    <linearGradient id="probonBlue" x1="22" y1="138" x2="137" y2="18" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0052FF"/>
+      <stop offset="0.52" stop-color="#367BFF"/>
+      <stop offset="1" stop-color="#73A4FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M57 18H117C131 18 141 28 141 42V118C141 132 131 142 117 142H83C73 142 68 137 68 127V111C68 101 74 95 84 95H105C116 95 122 89 122 78V68C122 57 116 51 105 51H84C73 51 68 45 68 34V18" stroke="url(#probonBlue)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M68 18V142" stroke="url(#probonBlue)" stroke-width="9" stroke-linecap="round"/>
+</svg>
