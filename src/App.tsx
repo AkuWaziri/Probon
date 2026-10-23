@@ -261,7 +261,7 @@ function App() {
   };
   const joinCampaign = (c:Campaign) => {
     if(!walletAddress) { setNotice("Connect your Base wallet first. Your wallet address is recorded as the participant identity."); return; }
-    if(walletChainId!=="0x2105") { setNotice("Switch your wallet to Base Sepolia (Chain ID 8453) before joining."); return; }
+    if(walletChainId!=="0x14a34") { setNotice("Switch your wallet to Base Sepolia (Chain ID 84532) before joining."); return; }
     if(c.status!=="Active") { setNotice("This campaign is not accepting participants."); return; }
     if(new Date(c.deadline+" 23:59:59").getTime() < Date.now()) { setNotice("The deadline has passed. This campaign is closed."); return; }
     if(c.joined>=c.slots) { setNotice("All creator slots are filled. This campaign is closed to new participants."); return; }
@@ -318,7 +318,7 @@ function App() {
       setNotice(message + " No campaign was marked as funded.");
       return;
     }
-    let campaign:Campaign={id:"chain-"+escrowResult.campaignId,brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:"Active",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
+    let campaign:Campaign={id:"chain-"+escrowResult.campaignId,contractCampaignId:escrowResult.campaignId,escrowTxHash:escrowResult.txHash,brand:createForm.brand.trim(),initials:createForm.brand.trim().slice(0,1).toUpperCase(),logo:createForm.logo||undefined,category:createForm.category,title:createForm.title.trim(),description:createForm.description.trim(),channel:createForm.channel,reward,budget:reward*slots,slots,joined:0,deadline:new Date(createForm.deadline+"T23:59:59").toLocaleDateString("en-US",{month:"short",day:"2-digit",year:"numeric"}),status:"Active",accent:["lavender","rose","blue","mint","amber","sky"][campaigns.length%6],requirements:createForm.requirements,creatorEmail:createForm.creatorEmail.trim()||undefined,creatorTelegram:createForm.creatorTelegram.trim().replace(/^@/,"")||undefined,creatorWallet:walletAddress,createdByMe:true};
     if (isSupabaseConfigured && supabase) {
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) { setNotice("Sign in with your Base wallet before saving a shared campaign draft."); return; }
@@ -346,7 +346,7 @@ function App() {
         setNotice("Campaign draft was not saved to the shared database. Check your wallet sign-in and database policies, then try again.");
         return;
       }
-      campaign = {...campaign, id:data.id, joined:Number(data.joined_count), status:"Upcoming"};
+      campaign = {...campaign, joined:Number(data.joined_count), status:"Active"};
       if (createForm.creatorEmail.trim() || createForm.creatorTelegram.trim()) {
         const { error: profileError } = await supabase.from("profiles").upsert({
           id: authData.user.id,
